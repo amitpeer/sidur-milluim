@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- NextAuth models ---
+
+model User {
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  emailVerified   DateTime?
+  image           String?
+  accounts        Account[]
+  sessions        Session[]
+  soldierProfile  SoldierProfile?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// --- Domain models ---
+
+model SoldierProfile {
+  id                  String             @id @default(cuid())
+  userId              String             @unique
+  fullName            String
+  phone               String?
+  city                String?
+  roles               String[]           @default([])
+  isFarAway           Boolean            @default(false)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seasonMembers       SeasonMember[]
+  dayOffConstraints   DayOffConstraint[]
+  assignments         ScheduleAssignment[] @relation("soldier")
+  replacementsDone    ScheduleAssignment[] @relation("replacement")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Season {
+  id                  String             @id @default(cuid())
+  name                String
+  startDate           DateTime           @db.Date
+  endDate             DateTime           @db.Date
+  trainingEndDate     DateTime?          @db.Date
+  dailyHeadcount      Int                @default(8)
+  roleMinimums        Json               @default("{}")
+  constraintDeadline    DateTime?
+  cityGroupingEnabled   Boolean            @default(true)
+  maxConsecutiveDays    Int?
+  isActive              Boolean            @default(true)
+  members             SeasonMember[]
+  dayOffConstraints   DayOffConstraint[]
+  scheduleVersions    ScheduleVersion[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model SeasonMember {
+  id                String         @id @default(cuid())
+  seasonId          String
+  soldierProfileId  String
+  role              String         @default("soldier")
+  season            Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  soldierProfile    SoldierProfile @relation(fields: [soldierProfileId], references: [id], onDelete: Cascade)
+  createdAt         DateTime       @default(now())
+
+  @@unique([seasonId, soldierProfileId])
+}
+
+model DayOffConstraint {
+  id                String         @id @default(cuid())
+  seasonId          String
+  soldierProfileId  String
+  date              DateTime       @db.Date
+  reason            String?
+  groupId           String?
+  season            Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  soldierProfile    SoldierProfile @relation(fields: [soldierProfileId], references: [id], onDelete: Cascade)
+  createdAt         DateTime       @default(now())
+
+  @@unique([seasonId, soldierProfileId, date])
+}
+
+model ScheduleVersion {
+  id                  String               @id @default(cuid())
+  seasonId            String
+  version             Int
+  generatedAt         DateTime             @default(now())
+  regeneratedFromDate DateTime?            @db.Date
+  isActive            Boolean              @default(true)
+  deletedAt           DateTime?
+  season              Season               @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  assignments         ScheduleAssignment[]
+
+  @@unique([seasonId, version])
+  @@index([seasonId, isActive])
+}
+
+model ScheduleAssignment {
+  id                  String          @id @default(cuid())
+  scheduleVersionId   String
+  soldierProfileId    String
+  date                DateTime        @db.Date
+  isOnBase            Boolean         @default(true)
+  isUnavailable       Boolean         @default(false)
+  replacedById        String?
+  manualOverride      Boolean         @default(false)
+  scheduleVersion     ScheduleVersion @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+  soldierProfile      SoldierProfile  @relation("soldier", fields: [soldierProfileId], references: [id], onDelete: Cascade)
+  replacedBy          SoldierProfile? @relation("replacement", fields: [replacedById], references: [id])
+
+  @@unique([scheduleVersionId, soldierProfileId, date])
+  @@index([scheduleVersionId, date])
+  @@index([soldierProfileId])
+}
