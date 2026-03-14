@@ -4,7 +4,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   getAdminConstraintsPageDataAction,
-  adminEditConstraintAction,
   adminDeleteConstraintAction,
   adminAddConstraintAction,
 } from "@/server/actions/constraint-actions";
@@ -46,10 +45,7 @@ export function AdminConstraintsContent({ seasonId }: { readonly seasonId: strin
   const [loading, setLoading] = useState(true);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [addSoldierId, setAddSoldierId] = useState("");
-  const [addReason, setAddReason] = useState("");
   const [addDates, setAddDates] = useState<Set<string>>(new Set());
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editReason, setEditReason] = useState("");
   const [expandedSoldiers, setExpandedSoldiers] = useState<Set<string>>(new Set());
 
   const load = async () => {
@@ -97,26 +93,11 @@ export function AdminConstraintsContent({ seasonId }: { readonly seasonId: strin
     await load();
   };
 
-  const handleEdit = async (id: string) => {
-    await adminEditConstraintAction(id, seasonId, {
-      reason: editReason || null,
-    });
-    setEditingId(null);
-    setEditReason("");
-    await load();
-  };
-
   const handleAdd = async () => {
     if (!addSoldierId || addDates.size === 0) return;
-    await adminAddConstraintAction(
-      seasonId,
-      addSoldierId,
-      [...addDates],
-      addReason || undefined,
-    );
+    await adminAddConstraintAction(seasonId, addSoldierId, [...addDates]);
     setShowAddPanel(false);
     setAddSoldierId("");
-    setAddReason("");
     setAddDates(new Set());
     await load();
   };
@@ -169,58 +150,14 @@ export function AdminConstraintsContent({ seasonId }: { readonly seasonId: strin
                           key={c.id}
                           className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs text-red-700 dark:bg-red-900 dark:text-red-200"
                         >
-                          {editingId === c.id ? (
-                            <div className="flex items-center gap-1">
-                              <span>{dateLabel}</span>
-                              <input
-                                autoFocus
-                                value={editReason}
-                                onChange={(e) => setEditReason(e.target.value)}
-                                placeholder="סיבה"
-                                className="w-24 rounded border border-red-300 bg-white px-1 py-0.5 text-xs dark:border-red-700 dark:bg-zinc-900"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleEdit(c.id);
-                                  if (e.key === "Escape") setEditingId(null);
-                                }}
-                              />
-                              <button
-                                onClick={() => handleEdit(c.id)}
-                                className="text-green-700 hover:text-green-900"
-                              >
-                                ✓
-                              </button>
-                              <button
-                                onClick={() => setEditingId(null)}
-                                className="text-zinc-500 hover:text-zinc-700"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <span>
-                                {dateLabel}
-                                {c.reason && ` — ${c.reason}`}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  setEditingId(c.id);
-                                  setEditReason(c.reason ?? "");
-                                }}
-                                className="text-red-500 hover:text-red-800"
-                                title="ערוך סיבה"
-                              >
-                                ✎
-                              </button>
-                              <button
-                                onClick={() => handleDelete(c.id)}
-                                className="text-red-500 hover:text-red-800"
-                                title="מחק אילוץ"
-                              >
-                                ✕
-                              </button>
-                            </>
-                          )}
+                          <span>{dateLabel}</span>
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            className="text-red-500 hover:text-red-800"
+                            title="מחק אילוץ"
+                          >
+                            ✕
+                          </button>
                         </div>
                       );
                     })}
@@ -242,31 +179,20 @@ export function AdminConstraintsContent({ seasonId }: { readonly seasonId: strin
       ) : (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="mb-3 text-base font-medium">הוספת אילוץ</h3>
-          <div className="mb-3 flex flex-col gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">חייל</label>
-              <select
-                value={addSoldierId}
-                onChange={(e) => setAddSoldierId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-              >
-                <option value="">בחר חייל</option>
-                {members.map((m) => (
-                  <option key={m.soldierProfile.id} value={m.soldierProfile.id}>
-                    {m.soldierProfile.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">סיבה (אופציונלי)</label>
-              <input
-                type="text"
-                value={addReason}
-                onChange={(e) => setAddReason(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-              />
-            </div>
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium">חייל</label>
+            <select
+              value={addSoldierId}
+              onChange={(e) => setAddSoldierId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">בחר חייל</option>
+              {members.map((m) => (
+                <option key={m.soldierProfile.id} value={m.soldierProfile.id}>
+                  {m.soldierProfile.fullName}
+                </option>
+              ))}
+            </select>
           </div>
           <p className="mb-2 text-xs text-zinc-500">בחר תאריכים:</p>
           <MonthCalendarGrid
@@ -296,7 +222,6 @@ export function AdminConstraintsContent({ seasonId }: { readonly seasonId: strin
                 setShowAddPanel(false);
                 setAddDates(new Set());
                 setAddSoldierId("");
-                setAddReason("");
               }}
               className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
             >

@@ -6,7 +6,7 @@ import { dateToString } from "@/lib/date-utils";
 interface DayState {
   readonly dateStr: string;
   readonly day: Date;
-  readonly status: "default" | "selected" | "existing" | "disabled";
+  readonly status: "default" | "selected" | "existing" | "removing" | "disabled";
 }
 
 interface MonthCalendarGridProps {
@@ -109,7 +109,7 @@ export function MonthCalendarGrid({
               key={dateStr}
               type="button"
               onClick={(e) => onDayClick(dateStr, e)}
-              disabled={status === "existing" || status === "disabled"}
+              disabled={status === "disabled"}
               style={{
                 gridColumnStart: idx === 0 ? dayOfWeek + 1 : undefined,
               }}
@@ -127,7 +127,9 @@ export function MonthCalendarGrid({
 function statusClassName(status: DayState["status"]): string {
   switch (status) {
     case "existing":
-      return "cursor-not-allowed bg-red-100 text-red-700 opacity-50 dark:bg-red-900 dark:text-red-200";
+      return "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800";
+    case "removing":
+      return "bg-red-50 text-red-400 line-through opacity-60 hover:opacity-80 dark:bg-red-950 dark:text-red-400";
     case "selected":
       return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200";
     case "disabled":

@@ -2,7 +2,7 @@ import type { ScheduleAssignment } from "./schedule.types";
 
 export interface ConstraintChecker {
   findViolations(
-    onBaseAssignments: readonly ScheduleAssignment[],
+    assignments: readonly ScheduleAssignment[],
     date: Date,
   ): ScheduleAssignment[];
 

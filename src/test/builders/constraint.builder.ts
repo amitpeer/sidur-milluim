@@ -11,8 +11,6 @@ export function buildConstraint(
     seasonId: `season-1`,
     soldierProfileId: `soldier-1`,
     date: new Date("2026-03-01T00:00:00.000Z"),
-    reason: null,
-    groupId: null,
     ...overrides,
   };
 }

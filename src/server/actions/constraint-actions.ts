@@ -3,12 +3,9 @@
 import { auth } from "@/server/auth/auth";
 import {
   addDayOffConstraint,
-  addDayOffConstraintBatch,
   removeDayOffConstraint,
-  removeConstraintGroup,
   getConstraintsForSeason,
   getConstraintsForSoldier,
-  updateConstraint,
   deleteConstraint,
 } from "@/server/db/stores/constraint-store";
 import { getSeasonSchedule, getSeasonDates, getConstraintDeadline } from "@/server/db/stores/season-store";
@@ -23,13 +20,12 @@ export async function addConstraintAction(
   seasonId: string,
   soldierProfileId: string,
   dateStr: string,
-  reason?: string,
 ): Promise<ConstraintActionState> {
   const deadlineError = await checkConstraintDeadline(seasonId);
   if (deadlineError) return deadlineError;
 
   const date = new Date(dateStr + "T00:00:00.000Z");
-  await addDayOffConstraint({ seasonId, soldierProfileId, date, reason });
+  await addDayOffConstraint({ seasonId, soldierProfileId, date });
   return { success: true };
 }
 
@@ -77,45 +73,6 @@ export async function getMyProfileIdAction(
   return profile.id;
 }
 
-export async function addConstraintGroupAction(
-  seasonId: string,
-  dateStrings: string[],
-  reason?: string,
-): Promise<ConstraintActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
-
-  const profile = await getSoldierProfile(session.user.id);
-  if (!profile) return { error: "פרופיל לא נמצא" };
-
-  const deadlineError = await checkConstraintDeadline(seasonId);
-  if (deadlineError) return deadlineError;
-
-  const dates = dateStrings.map((s) => new Date(s + "T00:00:00.000Z"));
-  const groupId = crypto.randomUUID();
-
-  await addDayOffConstraintBatch({
-    seasonId,
-    soldierProfileId: profile.id,
-    dates,
-    reason,
-    groupId,
-  });
-
-  return { success: true };
-}
-
-export async function removeConstraintGroupAction(
-  seasonId: string,
-  groupId: string,
-): Promise<ConstraintActionState> {
-  const deadlineError = await checkConstraintDeadline(seasonId);
-  if (deadlineError) return deadlineError;
-
-  await removeConstraintGroup(groupId);
-  return { success: true };
-}
-
 async function verifyAdmin(seasonId: string): Promise<{ isAdmin: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user?.id) return { isAdmin: false, error: "לא מחובר" };
@@ -151,15 +108,30 @@ async function checkConstraintDeadline(
   return null;
 }
 
-export async function adminEditConstraintAction(
-  constraintId: string,
+export async function saveConstraintChangesAction(
   seasonId: string,
-  updates: { reason?: string | null },
+  adds: string[],
+  removes: string[],
 ): Promise<ConstraintActionState> {
-  const { isAdmin, error } = await verifyAdmin(seasonId);
-  if (!isAdmin) return { error: error! };
+  const deadlineError = await checkConstraintDeadline(seasonId);
+  if (deadlineError) return deadlineError;
 
-  await updateConstraint(constraintId, updates);
+  const session = await auth();
+  if (!session?.user?.id) return { error: "לא מחובר" };
+
+  const profile = await getSoldierProfile(session.user.id);
+  if (!profile) return { error: "פרופיל לא נמצא" };
+
+  for (const dateStr of removes) {
+    const date = new Date(dateStr + "T00:00:00.000Z");
+    await removeDayOffConstraint(seasonId, profile.id, date);
+  }
+
+  for (const dateStr of adds) {
+    const date = new Date(dateStr + "T00:00:00.000Z");
+    await addDayOffConstraint({ seasonId, soldierProfileId: profile.id, date });
+  }
+
   return { success: true };
 }
 
@@ -215,21 +187,14 @@ export async function adminAddConstraintAction(
   seasonId: string,
   soldierProfileId: string,
   dateStrings: string[],
-  reason?: string,
 ): Promise<ConstraintActionState> {
   const { isAdmin, error } = await verifyAdmin(seasonId);
   if (!isAdmin) return { error: error! };
 
-  const dates = dateStrings.map((s) => new Date(s + "T00:00:00.000Z"));
-  const groupId = crypto.randomUUID();
-
-  await addDayOffConstraintBatch({
-    seasonId,
-    soldierProfileId,
-    dates,
-    reason,
-    groupId,
-  });
+  for (const s of dateStrings) {
+    const date = new Date(s + "T00:00:00.000Z");
+    await addDayOffConstraint({ seasonId, soldierProfileId, date });
+  }
 
   return { success: true };
 }

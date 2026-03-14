@@ -93,12 +93,12 @@ function removeViolations(
   const toRemove = new Set<ScheduleAssignment>();
 
   for (const day of days) {
-    const onBase = assignments.filter(
-      (a) => a.isOnBase && dateToString(a.date) === dateToString(day),
+    const dayAssignments = assignments.filter(
+      (a) => dateToString(a.date) === dateToString(day),
     );
 
     for (const checker of checkers) {
-      for (const violation of checker.findViolations(onBase, day)) {
+      for (const violation of checker.findViolations(dayAssignments, day)) {
         toRemove.add(violation);
       }
     }

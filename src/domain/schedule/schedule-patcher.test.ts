@@ -113,6 +113,35 @@ describe("patchSchedule", () => {
       const ids = onBaseSoldierIds(result.assignments, "2026-03-01");
       expect(ids).not.toContain("s2");
     });
+
+    it("removes sick/course assignments that violate a day-off constraint", () => {
+      const s1 = buildSoldier({ id: "s1" });
+      const s2 = buildSoldier({ id: "s2" });
+      const season = buildSeason({
+        startDate: new Date("2026-03-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-01T00:00:00.000Z"),
+        dailyHeadcount: 1,
+      });
+      const assignments = [
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01", isOnBase: false, absentReason: "sick" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-01" }),
+      ];
+      const checker = new DayOffConstraintChecker([
+        { soldierProfileId: "s1", date: new Date("2026-03-01T00:00:00.000Z") },
+      ]);
+
+      const result = patchSchedule({
+        assignments,
+        constraintCheckers: [checker],
+        soldiers: [s1, s2],
+        season,
+      });
+
+      const s1Assignments = result.assignments.filter(
+        (a) => a.soldierProfileId === "s1" && a.date.toISOString().startsWith("2026-03-01"),
+      );
+      expect(s1Assignments).toHaveLength(0);
+    });
   });
 
   describe("phase 4: fill understaffed days", () => {

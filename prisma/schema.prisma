@@ -116,8 +116,6 @@ model DayOffConstraint {
   seasonId          String
   soldierProfileId  String
   date              DateTime       @db.Date
-  reason            String?
-  groupId           String?
   season            Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   soldierProfile    SoldierProfile @relation(fields: [soldierProfileId], references: [id], onDelete: Cascade)
   createdAt         DateTime       @default(now())
