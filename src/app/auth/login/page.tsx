@@ -13,11 +13,7 @@ export default function LoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/" }, {
-              scope: "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
-              access_type: "offline",
-              prompt: "consent",
-            });
+            await signIn("google", { redirectTo: "/" });
           }}
         >
           <button
