@@ -1,10 +1,12 @@
 import type { PreparedBoardData } from "@/app/season/[seasonId]/board/prepare-board-data";
 import type { SoldierRow, CellStatus } from "@/app/season/[seasonId]/board/board.types";
-import { getGoogleSheetsClient } from "./google-auth";
+import { getGoogleSheetsClient, getGoogleDriveClient } from "./google-auth";
 import type { sheets_v4 } from "googleapis";
 
 type RowData = sheets_v4.Schema$RowData;
 type CellData = sheets_v4.Schema$CellData;
+
+const SHEETS_FOLDER_ID = "1mUJBRkyC8u8cjXGoZlestPeJHeW-sGWp";
 
 const GREEN = { red: 0.85, green: 0.93, blue: 0.83 };
 const RED = { red: 0.96, green: 0.8, blue: 0.8 };
@@ -52,6 +54,13 @@ export async function createScheduleSheet(
 
   const spreadsheetId = response.data.spreadsheetId!;
   const sheetId = response.data.sheets![0].properties!.sheetId!;
+
+  const drive = await getGoogleDriveClient();
+  await drive.files.update({
+    fileId: spreadsheetId,
+    addParents: SHEETS_FOLDER_ID,
+    removeParents: "root",
+  });
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,

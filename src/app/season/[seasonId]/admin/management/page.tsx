@@ -42,6 +42,7 @@ export default function AdminManagementPage() {
   const [warnings, setWarnings] = useState<PageData["warnings"]>([]);
   type SheetExportRow = Awaited<ReturnType<typeof getSheetExportsAction>>[number];
   const [sheetExports, setSheetExports] = useState<SheetExportRow[]>([]);
+  const [showAllExports, setShowAllExports] = useState(false);
   const [pendingExportAction, setPendingExportAction] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
 
@@ -318,7 +319,7 @@ export default function AdminManagementPage() {
         {sheetExports.length > 0 && (
           <Section title="היסטוריית ייצוא ל-Sheets">
             <div className="flex flex-col gap-2">
-              {sheetExports.map((exp) => (
+              {(showAllExports ? sheetExports : sheetExports.slice(0, 5)).map((exp) => (
                 <div
                   key={exp.id}
                   className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
@@ -403,6 +404,16 @@ export default function AdminManagementPage() {
                   </span>
                 </div>
               ))}
+              {sheetExports.length > 5 && (
+                <button
+                  onClick={() => setShowAllExports(!showAllExports)}
+                  className="mt-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  {showAllExports
+                    ? "הצג פחות"
+                    : `הצג עוד (${sheetExports.length - 5})`}
+                </button>
+              )}
             </div>
           </Section>
         )}

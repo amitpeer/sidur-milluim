@@ -1,5 +1,4 @@
 import { auth } from "@/server/auth/auth";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getActiveSeasonsAction } from "@/server/actions/season-actions";
 
@@ -7,7 +6,7 @@ export default async function HomePage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/auth/login");
+    return <LandingPage />;
   }
 
   const seasons = await getActiveSeasonsAction();
@@ -49,6 +48,32 @@ export default async function HomePage() {
       >
         צור עונה חדשה
       </Link>
+    </main>
+  );
+}
+
+function LandingPage() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="flex w-full max-w-md flex-col items-center gap-8 text-center">
+        <h1 className="text-3xl font-bold">סידור מילואים</h1>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          מערכת לניהול וסידור תורנויות שירות מילואים. צפייה בלוח התורנויות,
+          ניהול עונות, וייצוא לגיליון אלקטרוני.
+        </p>
+        <Link
+          href="/auth/login"
+          className="rounded-lg bg-zinc-900 px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          התחברות
+        </Link>
+        <Link
+          href="/privacy"
+          className="text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+        >
+          מדיניות פרטיות
+        </Link>
+      </div>
     </main>
   );
 }

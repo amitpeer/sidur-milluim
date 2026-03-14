@@ -12,7 +12,6 @@ interface MobileNavProps {
 
 const LEFT_ITEMS = [
   { path: "my-schedule", label: "שלי", icon: "user" },
-  { path: "constraints", label: "אילוצים", icon: "calendar" },
 ] as const;
 
 const RIGHT_ITEMS = [
@@ -37,12 +36,24 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
   const isBoardActive =
     pathname === boardHref || pathname.startsWith(boardHref + "/");
 
-  const itemCount = 4 + (isAdmin ? 1 : 0) + 1;
+  const itemCount = LEFT_ITEMS.length + 1 + RIGHT_ITEMS.length + (isAdmin ? 1 : 0);
 
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
         <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${itemCount}, 1fr)` }}>
+          <Link
+            href={boardHref}
+            className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
+              isBoardActive
+                ? "text-blue-700 dark:text-blue-400"
+                : "text-blue-600 dark:text-blue-500"
+            }`}
+          >
+            <NavIcon type="board" />
+            בית
+          </Link>
+
           {LEFT_ITEMS.map((item) => (
             <NavLink
               key={item.path}
@@ -55,30 +66,6 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
               }
             />
           ))}
-
-          <Link
-            href={boardHref}
-            className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
-              isBoardActive
-                ? "text-blue-700 dark:text-blue-400"
-                : "text-blue-600 dark:text-blue-500"
-            }`}
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"
-              />
-            </svg>
-            בית
-          </Link>
 
           {RIGHT_ITEMS.map((item) => (
             <NavLink
@@ -96,7 +83,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
           {isAdmin && (
             <button
               onClick={() => setAdminSheetOpen(!adminSheetOpen)}
-              className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
+              className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
                 pathname.includes("/admin")
                   ? "text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-400 dark:text-zinc-500"
@@ -132,7 +119,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
+      className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
         isActive
           ? "text-zinc-900 dark:text-zinc-100"
           : "text-zinc-400 dark:text-zinc-500"
@@ -187,8 +174,14 @@ function AdminSheet({
 }
 
 function NavIcon({ type }: { type: string }) {
-  const className = "h-5 w-5";
+  const className = "h-6 w-6";
   switch (type) {
+    case "board":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
+        </svg>
+      );
     case "user":
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
