@@ -42,17 +42,12 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
         <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${itemCount}, 1fr)` }}>
-          <Link
+          <NavLink
             href={boardHref}
-            className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
-              isBoardActive
-                ? "text-blue-700 dark:text-blue-400"
-                : "text-blue-600 dark:text-blue-500"
-            }`}
-          >
-            <NavIcon type="board" />
-            בית
-          </Link>
+            label="בית"
+            icon="board"
+            isActive={isBoardActive}
+          />
 
           {LEFT_ITEMS.map((item) => (
             <NavLink
@@ -80,19 +75,23 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
             />
           ))}
 
-          {isAdmin && (
-            <button
-              onClick={() => setAdminSheetOpen(!adminSheetOpen)}
-              className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
-                pathname.includes("/admin")
-                  ? "text-zinc-900 dark:text-zinc-100"
-                  : "text-zinc-400 dark:text-zinc-500"
-              }`}
-            >
-              <NavIcon type="settings" />
-              ניהול
-            </button>
-          )}
+          {isAdmin && (() => {
+            const isAdminActive = pathname.includes("/admin");
+            return (
+              <button
+                onClick={() => setAdminSheetOpen(!adminSheetOpen)}
+                className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
+                  isAdminActive
+                    ? "text-zinc-900 dark:text-zinc-100"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                <NavIcon type="settings" />
+                ניהול
+                <span className={`h-1 w-1 rounded-full ${isAdminActive ? "bg-zinc-900 dark:bg-zinc-100" : "bg-transparent"}`} />
+              </button>
+            );
+          })()}
         </div>
       </nav>
       {adminSheetOpen && (
@@ -127,6 +126,7 @@ function NavLink({
     >
       <NavIcon type={icon} />
       {label}
+      <span className={`h-1 w-1 rounded-full ${isActive ? "bg-zinc-900 dark:bg-zinc-100" : "bg-transparent"}`} />
     </Link>
   );
 }
