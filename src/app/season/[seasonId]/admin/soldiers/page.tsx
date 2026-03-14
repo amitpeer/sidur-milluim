@@ -18,16 +18,33 @@ import {
 } from "@/lib/constants";
 import { fetchIsraelCities } from "@/lib/israel-cities";
 import { CityAutocomplete } from "@/components/city-autocomplete";
+import { AdminConstraintsContent } from "../constraints/page";
+import { StatsTable } from "@/components/stats-table";
+import {
+  getSoldierStatsAction,
+  type SoldierStats,
+} from "@/server/actions/schedule-actions";
+
+type Tab = "chayyalim" | "iluzim" | "statistikot";
+
+const TABS: readonly { readonly key: Tab; readonly label: string }[] = [
+  { key: "chayyalim", label: "חיילים" },
+  { key: "iluzim", label: "אילוצים" },
+  { key: "statistikot", label: "סטטיסטיקות" },
+];
 
 const initialState: SoldierActionState = {};
 
 export default function AdminSoldiersPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
+  const [activeTab, setActiveTab] = useState<Tab>("chayyalim");
   const [members, setMembers] = useState<
     Awaited<ReturnType<typeof getSeasonMembersAction>>
   >([]);
   const [cities, setCities] = useState<string[]>([]);
   const [newCity, setNewCity] = useState("");
+  const [stats, setStats] = useState<SoldierStats[]>([]);
+  const [statsLoaded, setStatsLoaded] = useState(false);
 
   const loadMembers = async () => {
     const data = await getSeasonMembersAction(seasonId);
@@ -38,6 +55,15 @@ export default function AdminSoldiersPage() {
     loadMembers();
     fetchIsraelCities().then(setCities);
   }, [seasonId]);
+
+  useEffect(() => {
+    if (activeTab === "statistikot" && !statsLoaded) {
+      getSoldierStatsAction(seasonId).then((data) => {
+        setStats(data);
+        setStatsLoaded(true);
+      });
+    }
+  }, [activeTab, seasonId, statsLoaded]);
 
   const addSoldierBound = addSoldierToSeasonAction.bind(null, seasonId);
   const [state, formAction, isPending] = useActionState(
@@ -120,8 +146,34 @@ export default function AdminSoldiersPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-6">
-      <h2 className="mb-6 text-xl font-semibold">ניהול חיילים</h2>
+      <div className="mb-6 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
+      {activeTab === "iluzim" && (
+        <AdminConstraintsContent seasonId={seasonId} />
+      )}
+
+      {activeTab === "statistikot" && (
+        stats.length > 0
+          ? <StatsTable stats={stats} />
+          : <div className="text-sm text-zinc-400">{statsLoaded ? "אין נתונים עדיין." : "טוען..."}</div>
+      )}
+
+      {activeTab === "chayyalim" && (
+        <>
       <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="mb-4 text-base font-medium">הוספת חייל</h3>
 
@@ -264,6 +316,8 @@ export default function AdminSoldiersPage() {
           </tbody>
         </table>
       </div>
+        </>
+      )}
     </div>
   );
 }

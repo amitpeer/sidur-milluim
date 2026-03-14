@@ -45,7 +45,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-lg p-6">
-      <h2 className="mb-6 text-xl font-semibold">פרופיל</h2>
+      <h2 className="mb-6 text-xl font-semibold">הפרופיל שלי</h2>
 
       <div className="flex flex-col gap-4">
         <ProfileField label="שם מלא" value={profile.fullName} />
@@ -82,6 +82,7 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

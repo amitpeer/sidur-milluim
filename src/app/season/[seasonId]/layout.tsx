@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { AuthButtons } from "@/components/layout/auth-buttons";
 import { auth } from "@/server/auth/auth";
 import { getSoldierProfile, isSeasonAdmin } from "@/server/db/stores/soldier-store";
 import { getSeasonName } from "@/server/db/stores/season-store";
@@ -31,16 +32,15 @@ export default async function SeasonLayout({
   }
 
   const soldierNav = [
-    { href: `/season/${seasonId}/board`, label: "לוח" },
+    { href: `/season/${seasonId}/board`, label: "בית" },
     { href: `/season/${seasonId}/my-schedule`, label: "הסידור שלי" },
-    { href: `/season/${seasonId}/constraints`, label: "אילוצים" },
-    { href: `/season/${seasonId}/transitions`, label: "מעברים" },
-    { href: `/season/${seasonId}/profile`, label: "פרופיל" },
+    { href: `/season/${seasonId}/constraints`, label: "האילוצים שלי" },
+    { href: `/season/${seasonId}/transitions`, label: "כניסות/יציאות" },
+    { href: `/season/${seasonId}/profile`, label: "הפרופיל שלי" },
   ];
 
   const adminNav = [
     { href: `/season/${seasonId}/admin/soldiers`, label: "חיילים" },
-    { href: `/season/${seasonId}/admin/constraints`, label: "ניהול אילוצים" },
     { href: `/season/${seasonId}/admin/management`, label: "ניהול סידור" },
   ];
 
@@ -62,31 +62,34 @@ export default async function SeasonLayout({
               {season.name}
             </Link>
           </div>
-          <nav className="hidden gap-1 overflow-x-auto md:flex">
-            {soldierNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-              >
-                {item.label}
-              </Link>
-            ))}
-            {isAdmin && (
-              <>
-                <div className="mx-1 w-px self-stretch bg-zinc-200 dark:bg-zinc-700" />
-                {adminNav.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </>
-            )}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="hidden gap-1 overflow-x-auto md:flex">
+              {soldierNav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {isAdmin && (
+                <>
+                  <div className="mx-1 w-px self-stretch bg-zinc-200 dark:bg-zinc-700" />
+                  {adminNav.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </>
+              )}
+            </nav>
+            <AuthButtons isLoggedIn={!!session?.user} />
+          </div>
         </div>
       </header>
       <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>

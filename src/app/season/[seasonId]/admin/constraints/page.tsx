@@ -39,8 +39,7 @@ function groupBySoldier(constraints: Constraint[]): Map<string, SoldierGroup> {
   return groups;
 }
 
-export default function AdminConstraintsPage() {
-  const { seasonId } = useParams<{ seasonId: string }>();
+export function AdminConstraintsContent({ seasonId }: { readonly seasonId: string }) {
   const [constraints, setConstraints] = useState<Constraint[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [seasonDates, setSeasonDates] = useState<PageData["seasonDates"] | null>(null);
@@ -125,6 +124,7 @@ export default function AdminConstraintsPage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h2 className="mb-6 text-xl font-semibold">ניהול אילוצים</h2>
+      <p className="mb-4 text-sm text-zinc-500">{activeConstraints.length} אילוצים סה״כ</p>
 
       {sortedSoldierIds.length === 0 && !showAddPanel && (
         <p className="text-zinc-400">אין אילוצים עדיין.</p>
@@ -307,4 +307,9 @@ export default function AdminConstraintsPage() {
       )}
     </div>
   );
+}
+
+export default function AdminConstraintsPage() {
+  const { seasonId } = useParams<{ seasonId: string }>();
+  return <AdminConstraintsContent seasonId={seasonId} />;
 }

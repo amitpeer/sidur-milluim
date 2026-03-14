@@ -16,13 +16,12 @@ const LEFT_ITEMS = [
 ] as const;
 
 const RIGHT_ITEMS = [
-  { path: "transitions", label: "מעברים", icon: "arrows" },
+  { path: "transitions", label: "כניסות", icon: "arrows" },
   { path: "profile", label: "פרופיל", icon: "profile" },
 ] as const;
 
 const ADMIN_MENU_ITEMS = [
   { path: "admin/soldiers", label: "חיילים" },
-  { path: "admin/constraints", label: "ניהול אילוצים" },
   { path: "admin/management", label: "ניהול סידור" },
 ] as const;
 
@@ -87,7 +86,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
                   : "text-zinc-400 dark:text-zinc-500"
               }`}
             >
-              לוח
+              בית
             </span>
           </Link>
 

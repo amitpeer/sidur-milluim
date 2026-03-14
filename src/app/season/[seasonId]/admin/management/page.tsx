@@ -8,15 +8,19 @@ import {
   type CreateSeasonState,
 } from "@/server/actions/season-actions";
 import {
-  generateScheduleAction,
-  hardResetScheduleAction,
-  regenerateFromDateAction,
-  restoreVersionAction,
   getManagementPageDataAction,
-  getSoldierStatsAction,
-  type ScheduleActionState,
-  type SoldierStats,
 } from "@/server/actions/schedule-actions";
+import {
+  updateAndExportAction,
+  patchFromDateAndExportAction,
+  regenerateFromDateAndExportAction,
+  clearScheduleAction,
+  getSheetExportsAction,
+  setActiveSheetExportAction,
+  shareSheetAction,
+  deleteSheetExportAction,
+  syncFromSheetAction,
+} from "@/server/actions/sheets-actions";
 import {
   SOLDIER_ROLES,
   SOLDIER_ROLE_LABELS,
@@ -29,25 +33,28 @@ export default function AdminManagementPage() {
   const router = useRouter();
   type PageData = NonNullable<Awaited<ReturnType<typeof getManagementPageDataAction>>>;
   const [season, setSeason] = useState<PageData["season"] | null>(null);
-  const [scheduleState, setScheduleState] = useState<ScheduleActionState>({});
-  const [isPending, setIsPending] = useState(false);
+  const [hasActiveSchedule, setHasActiveSchedule] = useState(false);
+  const [isActionPending, setIsActionPending] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [confirmReset, setConfirmReset] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
-  const [versions, setVersions] = useState<PageData["versions"]>([]);
   const [warnings, setWarnings] = useState<PageData["warnings"]>([]);
-  const [stats, setStats] = useState<SoldierStats[]>([]);
+  type SheetExportRow = Awaited<ReturnType<typeof getSheetExportsAction>>[number];
+  const [sheetExports, setSheetExports] = useState<SheetExportRow[]>([]);
+  const [pendingExportAction, setPendingExportAction] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState("");
 
   const loadData = async () => {
-    const [data, statsData] = await Promise.all([
+    const [data, exports] = await Promise.all([
       getManagementPageDataAction(seasonId),
-      getSoldierStatsAction(seasonId),
+      getSheetExportsAction(seasonId),
     ]);
+    setSheetExports(exports);
     if (!data) return;
     setSeason(data.season);
-    setVersions(data.versions);
     setWarnings(data.warnings);
-    setStats(statsData);
+    setHasActiveSchedule(data.versions.some((v) => v.isActive));
   };
 
   useEffect(() => {
@@ -64,43 +71,123 @@ export default function AdminManagementPage() {
     if (!settingsState.error && !settingsState.fieldErrors) loadData();
   }, [settingsState]);
 
-  const handleGenerate = async () => {
-    setIsPending(true);
-    const result = await generateScheduleAction(seasonId);
-    setScheduleState(result);
-    setIsPending(false);
-    await loadData();
+  const runAction = async (action: () => Promise<{ url: string } | { error: string }>) => {
+    setIsActionPending(true);
+    setActionError("");
+    const result = await action();
+    setIsActionPending(false);
+    if ("error" in result) {
+      setActionError(result.error);
+    } else {
+      window.open(result.url, "_blank");
+      await loadData();
+    }
   };
 
-  const handleRegenerate = async () => {
-    if (!fromDate) return;
-    setIsPending(true);
-    const result = await regenerateFromDateAction(seasonId, fromDate);
-    setScheduleState(result);
-    setIsPending(false);
-    await loadData();
+  const handleCreateSchedule = () =>
+    runAction(() => updateAndExportAction(seasonId));
+
+  const handlePatchFromDate = () =>
+    runAction(() => patchFromDateAndExportAction(seasonId, fromDate));
+
+  const handleRegenerateFromDate = () => {
+    const confirmed = window.confirm(
+      "פעולה זו תיצור סידור חדש מאפס מהתאריך הנבחר ואילך. שינויים ידניים מתאריך זה ייאבדו. להמשיך?",
+    );
+    if (!confirmed) return;
+    runAction(() => regenerateFromDateAndExportAction(seasonId, fromDate));
   };
 
-  const handleHardReset = async () => {
-    setIsPending(true);
-    const result = await hardResetScheduleAction(seasonId);
-    setScheduleState(result);
-    setIsPending(false);
-    setConfirmReset("");
-    await loadData();
-  };
-
-  const handleRestore = async (versionId: string) => {
-    setIsPending(true);
-    const result = await restoreVersionAction(versionId, seasonId);
-    setScheduleState(result);
-    setIsPending(false);
-    await loadData();
+  const handleClearSchedule = async () => {
+    const confirmed = window.confirm(
+      "פעולה זו תמחק את כל היסטוריית הסידורים, כולל גרסאות קודמות של Google Sheets. להמשיך?",
+    );
+    if (!confirmed) return;
+    setIsActionPending(true);
+    setActionError("");
+    const result = await clearScheduleAction(seasonId);
+    setIsActionPending(false);
+    if ("error" in result) {
+      setActionError(result.error);
+    } else {
+      setConfirmReset("");
+      await loadData();
+    }
   };
 
   const handleDeleteSeason = async () => {
+    const confirmed = window.confirm(
+      "פעולה זו תמחק את העונה לצמיתות, כולל חיילים, אילוצים, סידורים וייצוא ל-Sheets. להמשיך?",
+    );
+    if (!confirmed) return;
     await deleteSeasonAction(seasonId);
     router.push("/");
+  };
+
+  const handleSetActiveExport = async (exportId: string) => {
+    setPendingExportAction(`activate-${exportId}`);
+    setActionError("");
+    const result = await setActiveSheetExportAction(exportId, seasonId);
+    setPendingExportAction(null);
+    if (result.error) {
+      setActionError(result.error);
+    } else {
+      await loadData();
+    }
+  };
+
+  const handleShareSheet = async (exportId: string) => {
+    setPendingExportAction(`share-${exportId}`);
+    setActionError("");
+    const result = await shareSheetAction(exportId, seasonId);
+    setPendingExportAction(null);
+    if ("error" in result) {
+      setActionError(result.error);
+    } else {
+      await loadData();
+    }
+  };
+
+  const handleDeleteExport = async (exportId: string) => {
+    const confirmed = window.confirm("למחוק את הגיליון הזה? לא ניתן לבטל פעולה זו.");
+    if (!confirmed) return;
+    setPendingExportAction(`delete-${exportId}`);
+    setActionError("");
+    const result = await deleteSheetExportAction(exportId, seasonId);
+    setPendingExportAction(null);
+    if (result.error) {
+      setActionError(result.error);
+    } else {
+      await loadData();
+    }
+  };
+
+  const handleSyncFromSheet = async () => {
+    setIsActionPending(true);
+    setActionError("");
+    setSyncMessage("");
+    const result = await syncFromSheetAction(seasonId);
+    setIsActionPending(false);
+    if ("error" in result) {
+      setActionError(result.error);
+    } else {
+      const parts: string[] = [];
+      if (result.changeCount > 0) {
+        parts.push(`עודכנו ${result.changeCount} תאים`);
+      } else {
+        parts.push("הסידור מעודכן");
+      }
+      if (result.warnings.length > 0) {
+        parts.push(`שמות שלא זוהו: ${result.warnings.join(", ")}`);
+      }
+      const { debug } = result;
+      parts.push(`[${debug.matchedSoldiers} חיילים, ${debug.columnCount} עמודות]`);
+      if (debug.unmatchedValues.length > 0) {
+        parts.push(`ערכים לא מוכרים: ${debug.unmatchedValues.map((v) => JSON.stringify(v)).join(", ")}`);
+      }
+      setSyncMessage(parts.join(" | "));
+      await loadData();
+    }
   };
 
   const [startDateVal, setStartDateVal] = useState("");
@@ -110,7 +197,9 @@ export default function AdminManagementPage() {
 
   useEffect(() => {
     if (!season) return;
-    setStartDateVal(dateToString(parseServerDate(season.startDate)));
+    const start = dateToString(parseServerDate(season.startDate));
+    const today = new Date().toISOString().split("T")[0];
+    setStartDateVal(start);
     setEndDateVal(dateToString(parseServerDate(season.endDate)));
     setTrainingEndDateVal(
       season.trainingEndDate ? dateToString(parseServerDate(season.trainingEndDate)) : "",
@@ -118,6 +207,7 @@ export default function AdminManagementPage() {
     setConstraintDeadlineVal(
       season.constraintDeadline ? dateToString(parseServerDate(season.constraintDeadline)) : "",
     );
+    setFromDate(today >= start ? today : start);
   }, [season]);
 
   if (!season) {
@@ -136,63 +226,188 @@ export default function AdminManagementPage() {
           {settingsState.error}
         </div>
       )}
-      {scheduleState.error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
-          {scheduleState.error}
-        </div>
-      )}
-      {scheduleState.success && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-400">
-          הפעולה בוצעה בהצלחה.
-        </div>
-      )}
 
       <div className="flex flex-col gap-6">
-        <Section title="פרטי העונה">
-          <form action={settingsAction} className="flex flex-col gap-4">
-            <SettingsField label="שם העונה" name="name" defaultValue={season.name} />
-            <DateField
-              label="תאריך התחלה"
-              name="startDate"
-              value={startDateVal}
-              onChange={setStartDateVal}
-              accent="blue"
-            />
-            <DateField
-              label='סיום אל"ת'
-              name="trainingEndDate"
-              value={trainingEndDateVal}
-              onChange={setTrainingEndDateVal}
-              description="סיום תקופת האימונים"
-              min={startDateVal}
-              max={endDateVal}
-              accent="amber"
-            />
-            <DateField
-              label="תאריך סיום"
-              name="endDate"
-              value={endDateVal}
-              onChange={setEndDateVal}
-              min={trainingEndDateVal || startDateVal}
-              accent="green"
-            />
-            <DateField
-              label="מועד אחרון לאילוצים"
-              name="constraintDeadline"
-              value={constraintDeadlineVal}
-              onChange={setConstraintDeadlineVal}
-              description="לאחר תאריך זה חיילים לא יוכלו לשנות אילוצים"
-              accent="red"
-            />
-            <button
-              type="submit"
-              disabled={settingsPending}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              {settingsPending ? "שומר..." : "שמור שינויים"}
-            </button>
-          </form>
+        <Section title="סידור וייצוא">
+          <div className="flex flex-col gap-4">
+            {!hasActiveSchedule ? (
+              <button
+                onClick={handleCreateSchedule}
+                disabled={isActionPending}
+                className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                  <path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z" />
+                  <path d="M3 3h18v18H3V3zm1 1v16h16V4H4z" />
+                </svg>
+                {isActionPending ? "מעבד..." : "צור סידור"}
+              </button>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <input
+                  type="date"
+                  value={fromDate}
+                  min={startDateVal}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handlePatchFromDate}
+                    disabled={isActionPending}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {isActionPending ? "מעבד..." : "איזון מתאריך"}
+                  </button>
+                  <button
+                    onClick={handleRegenerateFromDate}
+                    disabled={isActionPending}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-600 px-4 py-3 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                  >
+                    {isActionPending ? "מעבד..." : "סידור חדש מתאריך"}
+                  </button>
+                </div>
+                <div className="flex gap-3 text-xs text-zinc-400">
+                  <p className="flex-1">שומר שינויים ידניים, מתקן ומאזן מהתאריך הנבחר.</p>
+                  <p className="flex-1">מוחק ויוצר סידור חדש מאפס מהתאריך הנבחר.</p>
+                </div>
+                <button
+                  onClick={handleSyncFromSheet}
+                  disabled={isActionPending}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-blue-600 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                >
+                  {isActionPending ? "מסנכרן..." : "סנכרן מהגיליון"}
+                </button>
+                <p className="text-xs text-zinc-400">
+                  קורא שינויים מהגיליון הפעיל ב-Google Sheets ומעדכן את הסידור.
+                </p>
+                {syncMessage && (
+                  <p className="text-sm text-blue-600 dark:text-blue-400">{syncMessage}</p>
+                )}
+              </div>
+            )}
+            {actionError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
+            )}
+
+            <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <h4 className="mb-2 text-sm font-medium">מחיקת כל הסידורים</h4>
+              <p className="mb-2 text-xs text-zinc-400">
+                מוחק את כל גרסאות הסידור. לאחר מכן ניתן ליצור סידור חדש.
+              </p>
+              <input
+                type="text"
+                placeholder='הקלידו "מחיקה" לאישור'
+                value={confirmReset}
+                onChange={(e) => setConfirmReset(e.target.value)}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              <button
+                onClick={handleClearSchedule}
+                disabled={isActionPending || confirmReset !== "מחיקה"}
+                className="mt-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                מחיקה
+              </button>
+            </div>
+          </div>
         </Section>
+
+        {sheetExports.length > 0 && (
+          <Section title="היסטוריית ייצוא ל-Sheets">
+            <div className="flex flex-col gap-2">
+              {sheetExports.map((exp) => (
+                <div
+                  key={exp.id}
+                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
+                >
+                  <span className="flex items-center gap-2">
+                    <a
+                      href={exp.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {new Date(exp.createdAt).toLocaleString("he-IL", {
+                        day: "numeric",
+                        month: "long",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </a>
+                    {exp.createdBy.name && (
+                      <span className="text-xs text-zinc-400">
+                        — {exp.createdBy.name}
+                      </span>
+                    )}
+                    {exp.isActive && (
+                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-200">
+                        פעילה
+                      </span>
+                    )}
+                    {exp.isShared && (
+                      <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                        משותף
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {!exp.isShared && (
+                      <button
+                        onClick={() => handleShareSheet(exp.id)}
+                        disabled={pendingExportAction !== null}
+                        className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
+                      >
+                        {pendingExportAction === `share-${exp.id}` ? (
+                          <span className="flex items-center gap-1.5">
+                            <Spinner />
+                            משתף...
+                          </span>
+                        ) : (
+                          "שתף"
+                        )}
+                      </button>
+                    )}
+                    {!exp.isActive && (
+                      <button
+                        onClick={() => handleSetActiveExport(exp.id)}
+                        disabled={pendingExportAction !== null}
+                        className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        {pendingExportAction === `activate-${exp.id}` ? (
+                          <span className="flex items-center gap-1.5">
+                            <Spinner />
+                            מפעיל...
+                          </span>
+                        ) : (
+                          "הפעל"
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteExport(exp.id)}
+                      disabled={pendingExportAction !== null}
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                    >
+                      {pendingExportAction === `delete-${exp.id}` ? (
+                        <span className="flex items-center gap-1.5">
+                          <Spinner />
+                          מוחק...
+                        </span>
+                      ) : (
+                        "מחק"
+                      )}
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {warnings.length > 0 && (
+          <WarningsSection warnings={warnings} />
+        )}
 
         <Section title="פרמטרים ליצירת סידור">
           <form action={settingsAction} className="flex flex-col gap-4">
@@ -270,103 +485,56 @@ export default function AdminManagementPage() {
             >
               {settingsPending ? "שומר..." : "שמור פרמטרים"}
             </button>
+            <p className="text-xs text-zinc-400">השינויים ייכנסו לתוקף בייצוא הבא ל-Sheets.</p>
           </form>
         </Section>
 
-        {warnings.length > 0 && (
-          <WarningsSection warnings={warnings} />
-        )}
-
-        <Section title="יצירת סידור">
-          <div className="flex flex-col gap-4">
+        <Section title="פרטי העונה">
+          <form action={settingsAction} className="flex flex-col gap-4">
+            <SettingsField label="שם העונה" name="name" defaultValue={season.name} />
+            <DateField
+              label="תאריך התחלה"
+              name="startDate"
+              value={startDateVal}
+              onChange={setStartDateVal}
+              accent="blue"
+            />
+            <DateField
+              label='סיום אל"ת'
+              name="trainingEndDate"
+              value={trainingEndDateVal}
+              onChange={setTrainingEndDateVal}
+              description="סיום תקופת האימונים"
+              min={startDateVal}
+              max={endDateVal}
+              accent="amber"
+            />
+            <DateField
+              label="תאריך סיום"
+              name="endDate"
+              value={endDateVal}
+              onChange={setEndDateVal}
+              min={trainingEndDateVal || startDateVal}
+              accent="green"
+            />
+            <DateField
+              label="מועד אחרון לאילוצים"
+              name="constraintDeadline"
+              value={constraintDeadlineVal}
+              onChange={setConstraintDeadlineVal}
+              description="לאחר תאריך זה חיילים לא יוכלו לשנות אילוצים"
+              accent="red"
+            />
             <button
-              onClick={handleGenerate}
-              disabled={isPending}
-              className="rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              type="submit"
+              disabled={settingsPending}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
-              {isPending ? "מייצר..." : "צור סידור"}
+              {settingsPending ? "שומר..." : "שמור שינויים"}
             </button>
-
-            <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
-              <h4 className="mb-2 text-sm font-medium">ייצור מחדש מתאריך</h4>
-              <div className="flex gap-3">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
-                <button
-                  onClick={handleRegenerate}
-                  disabled={isPending || !fromDate}
-                  className="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-600 disabled:opacity-50 dark:bg-zinc-300 dark:text-zinc-900 dark:hover:bg-zinc-400"
-                >
-                  ייצר מחדש
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                ישמור את הסידור לפני התאריך ויייצר מחדש מהתאריך ואילך.
-              </p>
-            </div>
-
-            <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
-              <h4 className="mb-2 text-sm font-medium">איפוס מלא</h4>
-              <input
-                type="text"
-                placeholder='הקלידו "איפוס" לאישור'
-                value={confirmReset}
-                onChange={(e) => setConfirmReset(e.target.value)}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-              />
-              <button
-                onClick={handleHardReset}
-                disabled={isPending || confirmReset !== "איפוס"}
-                className="mt-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-              >
-                איפוס מלא
-              </button>
-            </div>
-          </div>
+            <p className="text-xs text-zinc-400">השינויים ייכנסו לתוקף בייצוא הבא ל-Sheets.</p>
+          </form>
         </Section>
-
-        {versions.length > 0 && (
-          <Section title="היסטוריית סידורים">
-            <div className="flex flex-col gap-2">
-              {versions.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
-                >
-                  <span>
-                    סידור {v.version} —{" "}
-                    {new Date(v.generatedAt).toLocaleString("he-IL", {
-                      day: "numeric",
-                      month: "long",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {v.isActive && (
-                      <span className="mr-2 rounded bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-200">
-                        פעילה
-                      </span>
-                    )}
-                  </span>
-                  {!v.isActive && (
-                    <button
-                      onClick={() => handleRestore(v.id)}
-                      disabled={isPending}
-                      className="text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                    >
-                      שחזר
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {stats.length > 0 && <StatsSection stats={stats} />}
 
         <Section title="מחיקת עונה">
           <p className="mb-3 text-sm text-zinc-500">
@@ -431,64 +599,13 @@ function WarningsSection({
   );
 }
 
-function StatsSection({ stats }: { stats: SoldierStats[] }) {
-  const [open, setOpen] = useState(false);
 
+function Spinner() {
   return (
-    <Section title="סטטיסטיקות">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-      >
-        {open ? "הסתר טבלה" : "הצג טבלה"}
-      </button>
-      {open && (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-                <th className="px-4 py-3 text-right font-medium">חייל</th>
-                <th className="px-4 py-3 text-center font-medium">
-                  <span className="inline-block rounded bg-green-100 px-2 py-0.5 text-green-700 dark:bg-green-900 dark:text-green-200">
-                    ימים בבסיס
-                  </span>
-                </th>
-                <th className="px-4 py-3 text-center font-medium">
-                  <span className="inline-block rounded bg-zinc-100 px-2 py-0.5 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    סה״כ חופש
-                  </span>
-                </th>
-                <th className="px-4 py-3 text-center font-medium">
-                  <span className="inline-block rounded bg-red-100 px-2 py-0.5 text-red-700 dark:bg-red-900 dark:text-red-200">
-                    מתוכם אילוצים
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-b border-zinc-100 dark:border-zinc-800"
-                >
-                  <td className="px-4 py-3 font-medium">{s.fullName}</td>
-                  <td className="px-4 py-3 text-center text-green-700 dark:text-green-300">
-                    {s.daysOnBase}
-                  </td>
-                  <td className="px-4 py-3 text-center text-zinc-500">
-                    {s.totalDaysOff}
-                  </td>
-                  <td className="px-4 py-3 text-center text-red-600 dark:text-red-300">
-                    {s.constraintDaysOff}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
+    <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
   );
 }
 
