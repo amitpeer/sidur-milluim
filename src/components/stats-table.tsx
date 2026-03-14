@@ -58,12 +58,11 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <h3 className="mb-3 text-sm font-medium">סטטיסטיקות ({stats.length})</h3>
       <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <table className="w-full text-sm" style={{ minWidth: 540 }}>
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
               <th
-                className="cursor-pointer px-3 py-3 text-right font-medium"
-                style={{ minWidth: 100 }}
+                className="cursor-pointer px-3 py-2 text-right font-medium"
                 onClick={() => handleSort("fullName")}
               >
                 חייל{arrow("fullName")}
@@ -71,8 +70,7 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
               {COLUMNS.map((col) => (
                 <th
                   key={col.field}
-                  className="cursor-pointer px-2 py-3 text-center font-medium"
-                  style={{ minWidth: 70 }}
+                  className="cursor-pointer px-2 py-2 text-center font-medium"
                   onClick={() => handleSort(col.field)}
                 >
                   <span className={`inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${col.bgClass}`}>
@@ -88,9 +86,9 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
                 key={s.id}
                 className="border-b border-zinc-100 dark:border-zinc-800"
               >
-                <td className="px-3 py-3 font-medium">{s.fullName}</td>
+                <td className="px-3 py-2 font-medium">{s.fullName}</td>
                 {COLUMNS.map((col) => (
-                  <td key={col.field} className={`px-2 py-3 text-center ${col.colorClass}`}>
+                  <td key={col.field} className={`px-2 py-2 text-center ${col.colorClass}`}>
                     {s[col.field]}
                   </td>
                 ))}

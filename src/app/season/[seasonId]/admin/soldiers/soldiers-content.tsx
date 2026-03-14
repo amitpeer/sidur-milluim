@@ -220,12 +220,10 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-              <th className="px-4 py-3 text-right font-medium">שם</th>
-              <th className="px-4 py-3 text-right font-medium">אימייל</th>
-              <th className="px-4 py-3 text-right font-medium">עיר</th>
-              <th className="px-4 py-3 text-right font-medium">תפקידים</th>
-              <th className="px-4 py-3 text-right font-medium">מנהל</th>
-              <th className="px-4 py-3 text-right font-medium">מרוחק מאוד</th>
+              <th className="px-3 py-2 text-right font-medium">שם</th>
+              <th className="px-3 py-2 text-right font-medium">עיר</th>
+              <th className="px-3 py-2 text-right font-medium">תפקידים</th>
+              <th className="px-3 py-2 text-right font-medium">סטטוס</th>
             </tr>
           </thead>
           <tbody>
@@ -234,7 +232,7 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
                 key={m.id}
                 className="border-b border-zinc-100 dark:border-zinc-800"
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     <InlineEditableText
                       value={m.soldierProfile.fullName}
@@ -249,10 +247,7 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
                     </button>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-zinc-500">
-                  {m.soldierProfile.user.email}
-                </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <CityAutocomplete
                     value={m.soldierProfile.city ?? ""}
                     onChange={(city) => handleCitySave(m.soldierProfile.id, city)}
@@ -261,7 +256,7 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
                     inputClassName="w-full border-b border-dashed border-zinc-300 bg-transparent px-1 py-1 text-sm focus:border-zinc-500 focus:outline-none dark:border-zinc-600"
                   />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <RoleMultiSelect
                     current={m.soldierProfile.roles as SoldierRole[]}
                     onChange={(roles) =>
@@ -269,42 +264,42 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
                     }
                   />
                 </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleToggleAdmin(m.soldierProfile.id, m.role)}
-                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                      m.role === "admin"
-                        ? "bg-violet-100 text-violet-800 hover:bg-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:hover:bg-violet-800"
-                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    }`}
-                  >
-                    {m.role === "admin" ? "כן" : "לא"}
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() =>
-                      handleToggleFarAway(
-                        m.soldierProfile.id,
-                        m.soldierProfile.isFarAway,
-                      )
-                    }
-                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                      m.soldierProfile.isFarAway
-                        ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
-                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    }`}
-                  >
-                    {m.soldierProfile.isFarAway ? "כן" : "לא"}
-                  </button>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleToggleAdmin(m.soldierProfile.id, m.role)}
+                      className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                        m.role === "admin"
+                          ? "bg-violet-100 text-violet-800 hover:bg-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:hover:bg-violet-800"
+                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      {m.role === "admin" ? "מנהל" : "חייל"}
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleToggleFarAway(
+                          m.soldierProfile.id,
+                          m.soldierProfile.isFarAway,
+                        )
+                      }
+                      className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                        m.soldierProfile.isFarAway
+                          ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
+                          : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      מרוחק
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {members.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-zinc-400"
+                  colSpan={4}
+                  className="px-3 py-8 text-center text-zinc-400"
                 >
                   אין חיילים עדיין. הוסיפו חיילים למעלה.
                 </td>
