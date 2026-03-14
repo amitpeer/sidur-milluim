@@ -73,18 +73,18 @@ export default function AdminManagementPage() {
   }, [settingsState]);
 
   const runAction = async (action: () => Promise<{ url: string } | { error: string }>) => {
+    const newTab = window.open("about:blank", "_blank");
     setIsActionPending(true);
     setActionError("");
     const result = await action();
     setIsActionPending(false);
     if ("error" in result) {
+      newTab?.close();
       setActionError(result.error);
     } else {
-      const link = document.createElement("a");
-      link.href = result.url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.click();
+      if (newTab) {
+        newTab.location.href = result.url;
+      }
       await loadData();
     }
   };
