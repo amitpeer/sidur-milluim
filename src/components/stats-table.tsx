@@ -16,11 +16,11 @@ const COLUMNS: readonly {
   readonly colorClass: string;
   readonly bgClass: string;
 }[] = [
-  { field: "daysOnBase", label: "ימים בבסיס", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
-  { field: "totalDaysOff", label: "סה״כ חופש", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
-  { field: "constraintDaysOff", label: "מתוכם אילוצים", colorClass: "text-red-600 dark:text-red-300", bgClass: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200" },
-  { field: "sickDays", label: "ימי מחלה", colorClass: "text-amber-700 dark:text-amber-300", bgClass: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
-  { field: "courseDays", label: "ימי קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
+  { field: "daysOnBase", label: "בבסיס", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
+  { field: "totalDaysOff", label: "חופש", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
+  { field: "constraintDaysOff", label: "אילוצים", colorClass: "text-red-600 dark:text-red-300", bgClass: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200" },
+  { field: "sickDays", label: "מחלה", colorClass: "text-amber-700 dark:text-amber-300", bgClass: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  { field: "courseDays", label: "קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
 ];
 
 export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] }) {
@@ -49,8 +49,6 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
     return sortDirection === "asc" ? diff : -diff;
   });
 
-  const visible = sorted;
-
   const arrow = (field: SortField) => {
     if (sortField !== field) return "";
     return sortDirection === "asc" ? " ▲" : " ▼";
@@ -60,11 +58,12 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <h3 className="mb-3 text-sm font-medium">סטטיסטיקות ({stats.length})</h3>
       <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <table className="w-full table-fixed text-sm">
+        <table className="w-full text-sm" style={{ minWidth: 540 }}>
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
               <th
-                className="w-[30%] cursor-pointer px-4 py-3 text-right font-medium"
+                className="cursor-pointer px-3 py-3 text-right font-medium"
+                style={{ minWidth: 100 }}
                 onClick={() => handleSort("fullName")}
               >
                 חייל{arrow("fullName")}
@@ -72,10 +71,11 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
               {COLUMNS.map((col) => (
                 <th
                   key={col.field}
-                  className="w-[14%] cursor-pointer px-4 py-3 text-center font-medium"
+                  className="cursor-pointer px-2 py-3 text-center font-medium"
+                  style={{ minWidth: 70 }}
                   onClick={() => handleSort(col.field)}
                 >
-                  <span className={`inline-block rounded px-2 py-0.5 ${col.bgClass}`}>
+                  <span className={`inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${col.bgClass}`}>
                     {col.label}{arrow(col.field)}
                   </span>
                 </th>
@@ -83,14 +83,14 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
             </tr>
           </thead>
           <tbody>
-            {visible.map((s) => (
+            {sorted.map((s) => (
               <tr
                 key={s.id}
                 className="border-b border-zinc-100 dark:border-zinc-800"
               >
-                <td className="px-4 py-3 font-medium">{s.fullName}</td>
+                <td className="px-3 py-3 font-medium">{s.fullName}</td>
                 {COLUMNS.map((col) => (
-                  <td key={col.field} className={`px-4 py-3 text-center ${col.colorClass}`}>
+                  <td key={col.field} className={`px-2 py-3 text-center ${col.colorClass}`}>
                     {s[col.field]}
                   </td>
                 ))}

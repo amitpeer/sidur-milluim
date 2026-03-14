@@ -246,8 +246,10 @@ export default function AdminManagementPage() {
               <div className="flex flex-col gap-4">
                 <input
                   type="date"
+                  lang="he-IL"
                   value={fromDate}
                   min={startDateVal}
+                  max={endDateVal}
                   onChange={(e) => setFromDate(e.target.value)}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                 />
@@ -268,8 +270,8 @@ export default function AdminManagementPage() {
                   </button>
                 </div>
                 <div className="flex gap-3 text-xs text-zinc-400">
-                  <p className="flex-1">שומר שינויים ידניים, מתקן ומאזן מהתאריך הנבחר.</p>
-                  <p className="flex-1">מוחק ויוצר סידור חדש מאפס מהתאריך הנבחר.</p>
+                  <p className="flex-1">מאזן מחדש מהתאריך הנבחר. שומר את הסידור שלפני.</p>
+                  <p className="flex-1">יוצר סידור חדש מהתאריך הנבחר. שומר את הסידור שלפני.</p>
                 </div>
                 <button
                   onClick={handleSyncFromSheet}

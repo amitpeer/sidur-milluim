@@ -37,10 +37,12 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
   const isBoardActive =
     pathname === boardHref || pathname.startsWith(boardHref + "/");
 
+  const itemCount = 4 + (isAdmin ? 1 : 0) + 1;
+
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
-        <div className="flex items-end justify-around">
+        <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${itemCount}, 1fr)` }}>
           {LEFT_ITEMS.map((item) => (
             <NavLink
               key={item.path}
@@ -56,17 +58,17 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
 
           <Link
             href={boardHref}
-            className="flex flex-col items-center gap-0.5 pb-1"
+            className="flex flex-col items-center gap-0.5 py-1.5"
           >
             <div
-              className={`-mt-5 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-colors ${
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
                 isBoardActive
                   ? "bg-blue-700 dark:bg-blue-500"
                   : "bg-blue-600 dark:bg-blue-600"
               }`}
             >
               <svg
-                className="h-6 w-6 text-white"
+                className="h-5 w-5 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -79,13 +81,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
                 />
               </svg>
             </div>
-            <span
-              className={`text-[10px] ${
-                isBoardActive
-                  ? "font-semibold text-blue-600 dark:text-blue-400"
-                  : "text-zinc-400 dark:text-zinc-500"
-              }`}
-            >
+            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
               בית
             </span>
           </Link>
@@ -106,7 +102,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
           {isAdmin && (
             <button
               onClick={() => setAdminSheetOpen(!adminSheetOpen)}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] ${
+              className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
                 pathname.includes("/admin")
                   ? "text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-400 dark:text-zinc-500"
@@ -142,7 +138,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] ${
+      className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
         isActive
           ? "text-zinc-900 dark:text-zinc-100"
           : "text-zinc-400 dark:text-zinc-500"

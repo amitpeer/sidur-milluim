@@ -109,6 +109,7 @@ function Field({
         id={name}
         name={name}
         type={type}
+        lang={type === "date" ? "he-IL" : undefined}
         placeholder={placeholder}
         required={required}
         defaultValue={defaultValue}
