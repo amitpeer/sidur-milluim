@@ -1,5 +1,5 @@
 import { prisma } from "@/server/db/client";
-import type { ScheduleAssignment } from "@/domain/schedule/schedule.types";
+import type { AbsentReason, ScheduleAssignment } from "@/domain/schedule/schedule.types";
 
 export async function getActiveScheduleVersionId(seasonId: string) {
   return prisma.scheduleVersion.findFirst({
@@ -34,37 +34,40 @@ export async function createScheduleVersion(
   assignments: ScheduleAssignment[],
   regeneratedFromDate?: Date,
 ) {
-  const lastVersion = await prisma.scheduleVersion.findFirst({
-    where: { seasonId },
-    orderBy: { version: "desc" },
-  });
+  return prisma.$transaction(async (tx) => {
+    const lastVersion = await tx.scheduleVersion.findFirst({
+      where: { seasonId },
+      orderBy: { version: "desc" },
+    });
 
-  const newVersion = (lastVersion?.version ?? 0) + 1;
+    const newVersion = (lastVersion?.version ?? 0) + 1;
 
-  await prisma.scheduleVersion.updateMany({
-    where: { seasonId, isActive: true },
-    data: { isActive: false, deletedAt: new Date() },
-  });
+    await tx.scheduleVersion.updateMany({
+      where: { seasonId, isActive: true },
+      data: { isActive: false, deletedAt: new Date() },
+    });
 
-  return prisma.scheduleVersion.create({
-    data: {
-      seasonId,
-      version: newVersion,
-      regeneratedFromDate,
-      assignments: {
-        createMany: {
-          data: assignments.map((a) => ({
-            soldierProfileId: a.soldierProfileId,
-            date: a.date,
-            isOnBase: a.isOnBase,
-            isUnavailable: a.isUnavailable,
-            replacedById: a.replacedById,
-            manualOverride: a.manualOverride,
-          })),
+    return tx.scheduleVersion.create({
+      data: {
+        seasonId,
+        version: newVersion,
+        regeneratedFromDate,
+        assignments: {
+          createMany: {
+            data: assignments.map((a) => ({
+              soldierProfileId: a.soldierProfileId,
+              date: a.date,
+              isOnBase: a.isOnBase,
+              isUnavailable: a.isUnavailable,
+              absentReason: a.absentReason,
+              replacedById: a.replacedById,
+              manualOverride: a.manualOverride,
+            })),
+          },
         },
       },
-    },
-    include: { assignments: true },
+      include: { assignments: true },
+    });
   });
 }
 
@@ -94,7 +97,7 @@ export async function getAssignmentsForSoldier(
       scheduleVersion: { seasonId, isActive: true, deletedAt: null },
       soldierProfileId,
     },
-    select: { date: true, isOnBase: true, isUnavailable: true },
+    select: { date: true, isOnBase: true, isUnavailable: true, absentReason: true },
     orderBy: { date: "asc" },
   });
 }
@@ -119,7 +122,25 @@ export async function toggleAssignment(
 ) {
   return prisma.scheduleAssignment.update({
     where: { id: assignmentId },
-    data: { isOnBase, manualOverride: true },
+    data: {
+      isOnBase,
+      manualOverride: true,
+      ...(isOnBase && { absentReason: null }),
+    },
+  });
+}
+
+export async function setAbsentReason(
+  assignmentId: string,
+  reason: AbsentReason | null,
+) {
+  return prisma.scheduleAssignment.update({
+    where: { id: assignmentId },
+    data: {
+      absentReason: reason,
+      isOnBase: reason ? false : undefined,
+      manualOverride: true,
+    },
   });
 }
 

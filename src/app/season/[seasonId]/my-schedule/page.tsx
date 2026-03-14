@@ -3,9 +3,29 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getMyScheduleAction } from "@/server/actions/schedule-actions";
-import { dateToString } from "@/lib/date-utils";
+import { groupScheduleBySequence } from "@/domain/schedule/group-schedule-by-sequence";
 
 type ScheduleDay = NonNullable<Awaited<ReturnType<typeof getMyScheduleAction>>>[number];
+
+function formatSequenceDate(startDate: Date, endDate: Date, dayCount: number): string {
+  if (dayCount === 1) {
+    return startDate.toLocaleDateString("he-IL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  }
+
+  const startLabel = startDate.toLocaleDateString("he-IL", {
+    day: "numeric",
+  });
+  const endLabel = endDate.toLocaleDateString("he-IL", {
+    day: "numeric",
+    month: "long",
+  });
+
+  return `${startLabel}-${endLabel} (${dayCount} ימים)`;
+}
 
 export default function MySchedulePage() {
   const { seasonId } = useParams<{ seasonId: string }>();
@@ -27,6 +47,8 @@ export default function MySchedulePage() {
   const onBaseDays = schedule.filter((d) => d.status === "on-base");
   const constraintOffDays = schedule.filter((d) => d.status === "constraint-off");
   const rotationOffDays = schedule.filter((d) => d.status === "rotation-off");
+  const sickDays = schedule.filter((d) => d.status === "sick");
+  const courseDays = schedule.filter((d) => d.status === "course");
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -42,6 +64,16 @@ export default function MySchedulePage() {
         <span className="rounded-full bg-zinc-100 px-3 py-1 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
           {rotationOffDays.length} ימי בבית
         </span>
+        {sickDays.length > 0 && (
+          <span className="rounded-full bg-yellow-100 px-3 py-1 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">
+            {sickDays.length} ימי מחלה
+          </span>
+        )}
+        {courseDays.length > 0 && (
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+            {courseDays.length} ימי קורס
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-4">
@@ -63,6 +95,22 @@ export default function MySchedulePage() {
           emptyText="אין ימי בבית"
           dotColor="bg-zinc-400"
         />
+        {sickDays.length > 0 && (
+          <DaySection
+            title="ימי מחלה"
+            days={sickDays}
+            emptyText="אין ימי מחלה"
+            dotColor="bg-yellow-500"
+          />
+        )}
+        {courseDays.length > 0 && (
+          <DaySection
+            title="ימי קורס"
+            days={courseDays}
+            emptyText="אין ימי קורס"
+            dotColor="bg-blue-500"
+          />
+        )}
       </div>
     </div>
   );
@@ -80,6 +128,10 @@ function DaySection({
   dotColor: string;
 }) {
   const [open, setOpen] = useState(false);
+
+  const sequences = groupScheduleBySequence(
+    days.map((d) => ({ date: new Date(d.date), status: d.status })),
+  );
 
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
@@ -101,29 +153,17 @@ function DaySection({
       </button>
       {open && (
         <div className="divide-y divide-zinc-100 border-t border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-          {days.map((d) => {
-            const date = new Date(d.date);
-            return (
-              <div
-                key={dateToString(date)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm"
-              >
-                <span className={`h-2 w-2 rounded-full ${dotColor}`} />
-                <span>
-                  {date.toLocaleDateString("he-IL", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </span>
-                {d.isUnavailable && (
-                  <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-200">
-                    לא זמין
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          {sequences.map((seq) => (
+            <div
+              key={seq.startDate.toISOString()}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm"
+            >
+              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+              <span>
+                {formatSequenceDate(seq.startDate, seq.endDate, seq.dayCount)}
+              </span>
+            </div>
+          ))}
           {days.length === 0 && (
             <p className="px-4 py-4 text-center text-sm text-zinc-400">
               {emptyText}

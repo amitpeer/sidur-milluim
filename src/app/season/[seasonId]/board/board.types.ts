@@ -1,4 +1,4 @@
-export type CellStatus = "present" | "constraint-off" | "rotation-off";
+export type CellStatus = "present" | "constraint-off" | "rotation-off" | "sick" | "course";
 
 export interface SoldierRow {
   readonly id: string;

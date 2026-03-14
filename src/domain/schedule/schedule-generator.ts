@@ -76,6 +76,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
         date: day,
         isOnBase: true,
         isUnavailable: false,
+        absentReason: null,
         replacedById: null,
         manualOverride: false,
       });
@@ -141,6 +142,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
             date: operationalDays[i],
             isOnBase: true,
             isUnavailable: false,
+            absentReason: null,
             replacedById: null,
             manualOverride: false,
           });
@@ -375,6 +377,7 @@ function fillUnderfilledDays(
         date: day,
         isOnBase: true,
         isUnavailable: false,
+        absentReason: null,
         replacedById: null,
         manualOverride: false,
       });
@@ -439,6 +442,7 @@ function fixRoleCoverage(
             date: day,
             isOnBase: true,
             isUnavailable: false,
+            absentReason: null,
             replacedById: null,
             manualOverride: false,
           });

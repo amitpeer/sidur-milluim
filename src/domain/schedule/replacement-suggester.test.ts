@@ -109,6 +109,7 @@ function makeAssignment(
     date: new Date(dateStr + "T00:00:00.000Z"),
     isOnBase: true,
     isUnavailable: false,
+    absentReason: null,
     replacedById: null,
     manualOverride: false,
   };

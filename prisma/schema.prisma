@@ -18,6 +18,7 @@ model User {
   accounts        Account[]
   sessions        Session[]
   soldierProfile  SoldierProfile?
+  sheetExports    SheetExport[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -93,6 +94,7 @@ model Season {
   members             SeasonMember[]
   dayOffConstraints   DayOffConstraint[]
   scheduleVersions    ScheduleVersion[]
+  sheetExports        SheetExport[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 }
@@ -145,6 +147,7 @@ model ScheduleAssignment {
   date                DateTime        @db.Date
   isOnBase            Boolean         @default(true)
   isUnavailable       Boolean         @default(false)
+  absentReason        String?
   replacedById        String?
   manualOverride      Boolean         @default(false)
   scheduleVersion     ScheduleVersion @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
@@ -154,4 +157,18 @@ model ScheduleAssignment {
   @@unique([scheduleVersionId, soldierProfileId, date])
   @@index([scheduleVersionId, date])
   @@index([soldierProfileId])
+}
+
+model SheetExport {
+  id          String   @id @default(cuid())
+  seasonId    String
+  url         String
+  isActive    Boolean  @default(true)
+  isShared    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  createdById String
+  season      Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  @@index([seasonId, isActive])
 }

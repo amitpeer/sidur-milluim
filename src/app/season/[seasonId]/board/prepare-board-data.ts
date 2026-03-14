@@ -6,11 +6,11 @@ import type {
   MonthGroup,
   DailyTotal,
 } from "./board.types";
-import type { getBoardDataAction } from "@/server/actions/schedule-actions";
+import type { getActiveScheduleVersion } from "@/server/db/stores/schedule-store";
+import type { getSeasonConfig } from "@/server/db/stores/season-store";
 
-type BoardData = NonNullable<Awaited<ReturnType<typeof getBoardDataAction>>>;
-type ScheduleVersion = NonNullable<BoardData["schedule"]>;
-type SeasonData = BoardData["season"];
+type ScheduleVersion = NonNullable<Awaited<ReturnType<typeof getActiveScheduleVersion>>>;
+type SeasonData = NonNullable<Awaited<ReturnType<typeof getSeasonConfig>>>;
 
 export interface PreparedBoardData {
   readonly nonDrivers: readonly SoldierRow[];
@@ -36,7 +36,8 @@ export function prepareBoardData(
   const dayColumns = buildDayColumns(allDays);
   const monthGroups = buildMonthGroups(allDays);
   const { nonDrivers, drivers } = buildSoldierLists(schedule);
-  const statusMap = buildStatusMap(schedule, constraintKeys);
+  const allSoldiers = [...nonDrivers, ...drivers];
+  const statusMap = buildStatusMap(schedule, allSoldiers, dayColumns, constraintKeys);
   const dailyTotals = buildDailyTotals(schedule);
 
   return { nonDrivers, drivers, allDays, dayColumns, monthGroups, statusMap, dailyTotals };
@@ -103,18 +104,36 @@ function buildSoldierLists(schedule: ScheduleVersion): {
 
 function buildStatusMap(
   schedule: ScheduleVersion,
+  soldiers: readonly SoldierRow[],
+  dayColumns: readonly DayColumnMeta[],
   constraintKeys: Set<string>,
 ): Map<string, CellStatus> {
-  const map = new Map<string, CellStatus>();
+  const onBaseKeys = new Set<string>();
+  const absentReasonMap = new Map<string, "sick" | "course">();
   for (const a of schedule.assignments) {
-    const dateStr = dateToString(new Date(a.date));
-    const key = `${a.soldierProfileId}::${dateStr}`;
+    const key = `${a.soldierProfileId}::${dateToString(new Date(a.date))}`;
     if (a.isOnBase) {
-      map.set(key, "present");
-    } else if (constraintKeys.has(`${a.soldierProfileId}-${dateStr}`)) {
-      map.set(key, "constraint-off");
-    } else {
-      map.set(key, "rotation-off");
+      onBaseKeys.add(key);
+    }
+    if (a.absentReason === "sick" || a.absentReason === "course") {
+      absentReasonMap.set(key, a.absentReason);
+    }
+  }
+
+  const map = new Map<string, CellStatus>();
+  for (const soldier of soldiers) {
+    for (const col of dayColumns) {
+      const key = `${soldier.id}::${col.dateStr}`;
+      const absentReason = absentReasonMap.get(key);
+      if (absentReason) {
+        map.set(key, absentReason);
+      } else if (constraintKeys.has(`${soldier.id}-${col.dateStr}`)) {
+        map.set(key, "constraint-off");
+      } else if (onBaseKeys.has(key)) {
+        map.set(key, "present");
+      } else {
+        map.set(key, "rotation-off");
+      }
     }
   }
   return map;

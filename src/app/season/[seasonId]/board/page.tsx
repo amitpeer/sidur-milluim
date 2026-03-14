@@ -1,165 +1,115 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { getBoardDataAction } from "@/server/actions/schedule-actions";
-import { dateToString } from "@/lib/date-utils";
-import { ScheduleBoard } from "./schedule-board";
+import { useEffect, useState } from "react";
+import { getHomePageDataAction } from "@/server/actions/home-actions";
+import { buildChecklistItems } from "@/domain/home/build-checklist-items";
 
-type BoardData = NonNullable<Awaited<ReturnType<typeof getBoardDataAction>>>;
-type ScheduleVersion = NonNullable<BoardData["schedule"]>;
-type SeasonData = BoardData["season"];
+type HomeData = NonNullable<Awaited<ReturnType<typeof getHomePageDataAction>>>;
 
 export default function BoardPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
-  const [schedule, setSchedule] = useState<ScheduleVersion | null>(null);
-  const [season, setSeason] = useState<SeasonData | null>(null);
-  const [constraintKeys, setConstraintKeys] = useState<Set<string>>(new Set());
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [completion, setCompletion] = useState<{
-    hasCity: boolean;
-    hasConstraints: boolean;
-  } | null>(null);
-  const [tableLoading, setTableLoading] = useState(true);
-
-  const loadData = async () => {
-    const data = await getBoardDataAction(seasonId);
-    if (!data) {
-      setTableLoading(false);
-      return;
-    }
-    setSchedule(data.schedule);
-    setSeason(data.season);
-    setIsAdmin(data.isAdmin);
-    setCompletion(data.completion);
-    const keys = new Set<string>();
-    for (const c of data.constraintKeys) {
-      keys.add(`${c.soldierProfileId}-${dateToString(new Date(c.date))}`);
-    }
-    setConstraintKeys(keys);
-    setTableLoading(false);
-  };
+  const [data, setData] = useState<HomeData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    getHomePageDataAction(seasonId).then((result) => {
+      setData(result);
+      setLoading(false);
+    });
   }, [seasonId]);
 
-  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(
-    new Set(),
-  );
+  if (loading) {
+    return <div className="p-6 text-zinc-400">טוען...</div>;
+  }
 
-  const dismissBanner = useCallback((key: string) => {
-    setDismissedBanners((prev) => new Set(prev).add(key));
-  }, []);
+  if (!data) {
+    return <div className="p-6 text-zinc-500">לא ניתן לטעון נתונים.</div>;
+  }
+
+  const today = new Date();
+  const checklistItems = buildChecklistItems({
+    hasCity: data.hasCity,
+    hasConstraints: data.hasConstraints,
+    constraintDeadline: data.constraintDeadline
+      ? new Date(data.constraintDeadline)
+      : null,
+    hasActiveSchedule: data.hasActiveSchedule,
+    now: today,
+  });
+
+  const todayLabel = today.toLocaleDateString("he-IL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-0 md:p-4">
-      <div className="shrink-0">
-        {completion &&
-          !completion.hasCity &&
-          !dismissedBanners.has("city") && (
-            <CompactBanner
-              href={`/season/${seasonId}/profile`}
-              text="לא הוגדרה עיר מגורים — עדכנו בפרופיל"
-              onDismiss={() => dismissBanner("city")}
-            />
-          )}
-        {completion &&
-          !completion.hasConstraints &&
-          !dismissedBanners.has("constraints") && (
-            <CompactBanner
-              href={`/season/${seasonId}/constraints`}
-              text="לא הוגשו אילוצים — הוסיפו אילוצים"
-              onDismiss={() => dismissBanner("constraints")}
-            />
-          )}
+    <div className="mx-auto max-w-lg p-6">
+      <h2 className="mb-1 text-xl font-semibold">{todayLabel}</h2>
+      <p className="mb-6 text-sm text-zinc-400">מה צריך לעשות?</p>
+
+      <div className="mb-6 flex flex-col gap-3">
+        {checklistItems.map((item) => (
+          <div
+            key={item.key}
+            className={`flex items-center gap-3 rounded-lg border p-4 ${
+              item.isComplete
+                ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+                : item.urgency === "overdue"
+                  ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950"
+                  : item.urgency === "warning"
+                    ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
+                    : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+            }`}
+          >
+            <span className="text-lg">
+              {item.isComplete ? "✓" : "○"}
+            </span>
+            <div className="flex-1">
+              <span
+                className={`text-sm font-medium ${
+                  item.isComplete
+                    ? "text-green-700 line-through dark:text-green-300"
+                    : ""
+                }`}
+              >
+                {item.label}
+              </span>
+              {item.daysLeft !== null && !item.isComplete && (
+                <span className="mr-2 text-xs text-zinc-500">
+                  {item.daysLeft > 0
+                    ? `(${item.daysLeft} ימים נותרו)`
+                    : item.daysLeft === 0
+                      ? "(היום!)"
+                      : `(באיחור של ${Math.abs(item.daysLeft)} ימים)`}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {tableLoading ? (
-        <div className="p-4">
-          <h2 className="mb-4 text-xl font-semibold">לוח סידור</h2>
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <svg
-              className="h-4 w-4 animate-spin"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            טוען סידור...
-          </div>
-        </div>
-      ) : !season ? (
-        <div className="p-6 text-zinc-500">עונה לא נמצאה.</div>
-      ) : !schedule ? (
-        <div className="p-4">
-          <h2 className="mb-4 text-xl font-semibold">לוח סידור</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            עדיין לא נוצר סידור. עברו לדף הניהול כדי ליצור סידור.
-          </p>
-        </div>
-      ) : (
-        <ScheduleBoard
-          schedule={schedule}
-          season={season}
-          constraintKeys={constraintKeys}
-          isAdmin={isAdmin}
-          seasonId={seasonId}
-          onCellChange={loadData}
-        />
-      )}
-    </div>
-  );
-}
-
-function CompactBanner({
-  href,
-  text,
-  onDismiss,
-}: {
-  href: string;
-  text: string;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 md:mx-0 md:mb-3 md:rounded-lg md:border md:px-4 md:py-3 md:text-sm">
-      <Link href={href} className="flex-1 hover:underline">
-        {text}
-      </Link>
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          onDismiss();
-        }}
-        className="shrink-0 rounded p-0.5 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900"
-      >
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+      {data.sheetUrl ? (
+        <a
+          href={data.sheetUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          פתח גיליון
+        </a>
+      ) : (
+        <button
+          disabled
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-200 px-6 py-3 text-sm font-medium text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600"
+        >
+          אין גיליון פעיל
+        </button>
+      )}
     </div>
   );
 }
