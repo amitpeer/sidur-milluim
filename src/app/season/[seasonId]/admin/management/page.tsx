@@ -80,7 +80,11 @@ export default function AdminManagementPage() {
     if ("error" in result) {
       setActionError(result.error);
     } else {
-      window.open(result.url, "_blank");
+      const link = document.createElement("a");
+      link.href = result.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
       await loadData();
     }
   };
