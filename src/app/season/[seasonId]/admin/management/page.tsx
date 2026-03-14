@@ -144,12 +144,12 @@ export default function AdminManagementPage() {
     setPendingExportAction(`share-${exportId}`);
     setActionError("");
     const result = await shareSheetAction(exportId, seasonId);
-    setPendingExportAction(null);
     if ("error" in result) {
       setActionError(result.error);
     } else {
       await loadData();
     }
+    setPendingExportAction(null);
   };
 
   const handleDeleteExport = async (exportId: string) => {
@@ -294,9 +294,6 @@ export default function AdminManagementPage() {
             )}
             {actionError && (
               <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
-            )}
-            {actionSuccess && (
-              <p className="text-sm text-green-600 dark:text-green-400">{actionSuccess}</p>
             )}
 
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
@@ -575,6 +572,27 @@ export default function AdminManagementPage() {
           </button>
         </Section>
       </div>
+
+      {actionSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+            <div className="mb-3 flex justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-center text-sm text-zinc-700 dark:text-zinc-300">{actionSuccess}</p>
+            <button
+              onClick={() => setActionSuccess("")}
+              className="mt-4 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              אישור
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
