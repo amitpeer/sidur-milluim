@@ -1,31 +1,16 @@
-"use client";
-
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { redirect } from "next/navigation";
 import { getHomePageDataAction } from "@/server/actions/home-actions";
 import { buildChecklistItems } from "@/domain/home/build-checklist-items";
 
-type HomeData = NonNullable<Awaited<ReturnType<typeof getHomePageDataAction>>>;
+interface Props {
+  params: Promise<{ seasonId: string }>;
+}
 
-export default function BoardPage() {
-  const { seasonId } = useParams<{ seasonId: string }>();
-  const [data, setData] = useState<HomeData | null>(null);
-  const [loading, setLoading] = useState(true);
+export default async function BoardPage({ params }: Props) {
+  const { seasonId } = await params;
+  const data = await getHomePageDataAction(seasonId);
 
-  useEffect(() => {
-    getHomePageDataAction(seasonId).then((result) => {
-      setData(result);
-      setLoading(false);
-    });
-  }, [seasonId]);
-
-  if (loading) {
-    return <div className="p-6 text-zinc-400">טוען...</div>;
-  }
-
-  if (!data) {
-    return <div className="p-6 text-zinc-500">לא ניתן לטעון נתונים.</div>;
-  }
+  if (!data) redirect("/");
 
   const today = new Date();
   const checklistItems = buildChecklistItems({
