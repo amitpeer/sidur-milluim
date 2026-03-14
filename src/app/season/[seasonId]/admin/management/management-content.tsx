@@ -16,7 +16,7 @@ import {
   regenerateFromDateAndExportAction,
   clearScheduleAction,
   getSheetExportsAction,
-  setActiveSheetExportAction,
+  activateAndSyncSheetAction,
   shareSheetAction,
   deleteSheetExportAction,
   syncFromSheetAction,
@@ -57,6 +57,7 @@ export function ManagementContent({
   const [showAllExports, setShowAllExports] = useState(false);
   const [pendingExportAction, setPendingExportAction] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
+  const [draftSheetUrl, setDraftSheetUrl] = useState<string | null>(null);
 
   const loadData = async () => {
     const [data, exports] = await Promise.all([
@@ -82,7 +83,7 @@ export function ManagementContent({
 
   const [actionSuccess, setActionSuccess] = useState("");
 
-  const runAction = async (action: () => Promise<{ url: string } | { error: string }>) => {
+  const runAction = async (action: () => Promise<{ url: string; isDraft: boolean } | { error: string }>) => {
     setIsActionPending(true);
     setActionError("");
     setActionSuccess("");
@@ -90,8 +91,13 @@ export function ManagementContent({
     setIsActionPending(false);
     if ("error" in result) {
       setActionError(result.error);
+    } else if (result.isDraft) {
+      setActionSuccess(`הסידור נוצר בהצלחה! הגיליון זמין כאן. הסידור לא יהיה פעיל עד שתפעילו אותו מרשימת הגרסאות למטה.`);
+      setDraftSheetUrl(result.url);
+      await loadData();
     } else {
       setActionSuccess("הסידור יוצא בהצלחה! הגיליון זמין מדף הבית או מרשימת הגרסאות למטה.");
+      setDraftSheetUrl(null);
       await loadData();
     }
   };
@@ -137,13 +143,34 @@ export function ManagementContent({
   };
 
   const handleSetActiveExport = async (exportId: string) => {
+    const confirmed = window.confirm(
+      "הפעלת גרסה זו תסנכרן את הנתונים מהגיליון לאפליקציה. להמשיך?",
+    );
+    if (!confirmed) return;
+
     setPendingExportAction(`activate-${exportId}`);
     setActionError("");
-    const result = await setActiveSheetExportAction(exportId, seasonId);
+    setSyncMessage("");
+    const result = await activateAndSyncSheetAction(exportId, seasonId);
     setPendingExportAction(null);
-    if (result.error) {
+    if ("error" in result) {
       setActionError(result.error);
     } else {
+      const parts: string[] = [];
+      if (result.changeCount > 0) {
+        parts.push(`עודכנו ${result.changeCount} תאים`);
+      } else {
+        parts.push("הסידור מעודכן");
+      }
+      if (result.warnings.length > 0) {
+        parts.push(`שמות שלא זוהו: ${result.warnings.join(", ")}`);
+      }
+      const { debug } = result;
+      parts.push(`[${debug.matchedSoldiers} חיילים, ${debug.columnCount} עמודות]`);
+      if (debug.unmatchedValues.length > 0) {
+        parts.push(`ערכים לא מוכרים: ${debug.unmatchedValues.map((v) => JSON.stringify(v)).join(", ")}`);
+      }
+      setSyncMessage(parts.join(" | "));
       await loadData();
     }
   };
@@ -277,7 +304,7 @@ export function ManagementContent({
                     {isActionPending ? "מעבד..." : "סידור חדש מתאריך"}
                   </button>
                 </div>
-                <div className="flex gap-3 text-xs text-zinc-400">
+                <div className="flex gap-3 text-sm text-zinc-500 dark:text-zinc-400">
                   <p className="flex-1">מאזן מחדש מהתאריך הנבחר. שומר את הסידור שלפני.</p>
                   <p className="flex-1">יוצר סידור חדש מהתאריך הנבחר. שומר את הסידור שלפני.</p>
                 </div>
@@ -288,7 +315,7 @@ export function ManagementContent({
                 >
                   {isActionPending ? "מסנכרן..." : "סנכרן מהגיליון"}
                 </button>
-                <p className="text-xs text-zinc-400">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
                   קורא שינויים מהגיליון הפעיל ב-Google Sheets ומעדכן את הסידור.
                 </p>
                 {syncMessage && (
@@ -302,7 +329,7 @@ export function ManagementContent({
 
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
               <h4 className="mb-2 text-sm font-medium">מחיקת כל הסידורים</h4>
-              <p className="mb-2 text-xs text-zinc-400">
+              <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
                 מוחק את כל גרסאות הסידור. לאחר מכן ניתן ליצור סידור חדש.
               </p>
               <input
@@ -587,9 +614,24 @@ export function ManagementContent({
                 </svg>
               </div>
             </div>
-            <p className="text-center text-sm text-zinc-700 dark:text-zinc-300">{actionSuccess}</p>
+            <p className="text-center text-sm text-zinc-700 dark:text-zinc-300">
+              {actionSuccess}
+              {draftSheetUrl && (
+                <>
+                  {" "}
+                  <a
+                    href={draftSheetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400"
+                  >
+                    פתח גיליון
+                  </a>
+                </>
+              )}
+            </p>
             <button
-              onClick={() => setActionSuccess("")}
+              onClick={() => { setActionSuccess(""); setDraftSheetUrl(null); }}
               className="mt-4 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               אישור

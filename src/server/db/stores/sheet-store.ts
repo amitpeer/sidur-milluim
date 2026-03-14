@@ -30,16 +30,26 @@ export async function createSheetExport(
   seasonId: string,
   url: string,
   userId: string,
+  options?: { isActive?: boolean },
 ): Promise<void> {
-  await prisma.$transaction([
-    prisma.sheetExport.updateMany({
-      where: { seasonId, isActive: true },
-      data: { isActive: false },
-    }),
+  const shouldActivate = options?.isActive ?? true;
+
+  const ops = [];
+  if (shouldActivate) {
+    ops.push(
+      prisma.sheetExport.updateMany({
+        where: { seasonId, isActive: true },
+        data: { isActive: false },
+      }),
+    );
+  }
+  ops.push(
     prisma.sheetExport.create({
-      data: { seasonId, url, createdById: userId },
+      data: { seasonId, url, createdById: userId, isActive: shouldActivate },
     }),
-  ]);
+  );
+
+  await prisma.$transaction(ops);
 }
 
 export async function deleteSheetExport(exportId: string) {

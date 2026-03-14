@@ -23,6 +23,19 @@ export async function getActiveScheduleVersion(seasonId: string) {
   });
 }
 
+export async function getScheduleVersionById(versionId: string) {
+  return prisma.scheduleVersion.findUnique({
+    where: { id: versionId },
+    include: {
+      assignments: {
+        include: {
+          soldierProfile: { select: { id: true, fullName: true, roles: true } },
+        },
+      },
+    },
+  });
+}
+
 export async function deleteAllScheduleVersions(seasonId: string) {
   return prisma.scheduleVersion.deleteMany({
     where: { seasonId },
@@ -33,7 +46,10 @@ export async function createScheduleVersion(
   seasonId: string,
   assignments: ScheduleAssignment[],
   regeneratedFromDate?: Date,
+  options?: { isActive?: boolean },
 ) {
+  const shouldActivate = options?.isActive ?? true;
+
   return prisma.$transaction(async (tx) => {
     const lastVersion = await tx.scheduleVersion.findFirst({
       where: { seasonId },
@@ -42,15 +58,18 @@ export async function createScheduleVersion(
 
     const newVersion = (lastVersion?.version ?? 0) + 1;
 
-    await tx.scheduleVersion.updateMany({
-      where: { seasonId, isActive: true },
-      data: { isActive: false, deletedAt: new Date() },
-    });
+    if (shouldActivate) {
+      await tx.scheduleVersion.updateMany({
+        where: { seasonId, isActive: true },
+        data: { isActive: false, deletedAt: new Date() },
+      });
+    }
 
     return tx.scheduleVersion.create({
       data: {
         seasonId,
         version: newVersion,
+        isActive: shouldActivate,
         regeneratedFromDate,
         assignments: {
           createMany: {

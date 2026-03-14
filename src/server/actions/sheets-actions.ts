@@ -17,6 +17,7 @@ import {
 } from "@/server/db/stores/season-store";
 import {
   getActiveScheduleVersion,
+  getScheduleVersionById,
   createScheduleVersion,
   deleteAllScheduleVersions,
 } from "@/server/db/stores/schedule-store";
@@ -50,10 +51,15 @@ import type { ScheduleAssignment } from "@/domain/schedule/schedule.types";
 async function exportCurrentSchedule(
   seasonId: string,
   userId: string,
+  versionId?: string,
+  asDraft?: boolean,
 ): Promise<{ url: string }> {
-  const [schedule, seasonConfig, rawConstraintKeys, seasonNameResult] =
+  const schedule = versionId
+    ? await getScheduleVersionById(versionId)
+    : await getActiveScheduleVersion(seasonId);
+
+  const [seasonConfig, rawConstraintKeys, seasonNameResult] =
     await Promise.all([
-      getActiveScheduleVersion(seasonId),
       getSeasonConfig(seasonId),
       getConstraintKeys(seasonId),
       getSeasonName(seasonId),
@@ -75,7 +81,7 @@ async function exportCurrentSchedule(
     dailyHeadcount: seasonConfig.dailyHeadcount,
     roleMinimums,
   });
-  await createSheetExport(seasonId, url, userId);
+  await createSheetExport(seasonId, url, userId, asDraft ? { isActive: false } : undefined);
   return { url };
 }
 
@@ -108,7 +114,7 @@ async function requireAdmin(seasonId: string): Promise<string> {
 
 export async function updateAndExportAction(
   seasonId: string,
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ url: string; isDraft: boolean } | { error: string }> {
   try {
     const userId = await requireAdmin(seasonId);
 
@@ -131,31 +137,36 @@ export async function updateAndExportAction(
         })),
       });
       await createScheduleVersion(seasonId, assignments);
-    } else {
-      const [season, constraints] = await Promise.all([
-        getSeasonById(seasonId),
-        getConstraintsForSeason(seasonId),
-      ]);
-      if (!season) throw new Error("עונה לא נמצאה");
-
-      const soldiers = buildSeasonSoldiers(season.members);
-      const dayOffChecker = new DayOffConstraintChecker(
-        constraints.map((c) => ({ soldierProfileId: c.soldierProfileId, date: c.date })),
-      );
-
-      const { assignments: patched, changeCount } = patchSchedule({
-        assignments: toAssignments(existing.assignments),
-        constraintCheckers: [dayOffChecker],
-        soldiers,
-        season: toDomainSeason(season),
-      });
-
-      if (changeCount > 0) {
-        await createScheduleVersion(seasonId, patched);
-      }
+      const { url } = await exportCurrentSchedule(seasonId, userId);
+      return { url, isDraft: false };
     }
 
-    return await exportCurrentSchedule(seasonId, userId);
+    const [season, constraints] = await Promise.all([
+      getSeasonById(seasonId),
+      getConstraintsForSeason(seasonId),
+    ]);
+    if (!season) throw new Error("עונה לא נמצאה");
+
+    const soldiers = buildSeasonSoldiers(season.members);
+    const dayOffChecker = new DayOffConstraintChecker(
+      constraints.map((c) => ({ soldierProfileId: c.soldierProfileId, date: c.date })),
+    );
+
+    const { assignments: patched, changeCount } = patchSchedule({
+      assignments: toAssignments(existing.assignments),
+      constraintCheckers: [dayOffChecker],
+      soldiers,
+      season: toDomainSeason(season),
+    });
+
+    if (changeCount > 0) {
+      const draftVersion = await createScheduleVersion(seasonId, patched, undefined, { isActive: false });
+      const { url } = await exportCurrentSchedule(seasonId, userId, draftVersion.id, true);
+      return { url, isDraft: true };
+    }
+
+    const { url } = await exportCurrentSchedule(seasonId, userId, undefined, true);
+    return { url, isDraft: true };
   } catch (err: unknown) {
     console.error("updateAndExportAction failed:", err);
     return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
@@ -165,7 +176,7 @@ export async function updateAndExportAction(
 export async function patchFromDateAndExportAction(
   seasonId: string,
   fromDateStr: string,
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ url: string; isDraft: boolean } | { error: string }> {
   try {
     const userId = await requireAdmin(seasonId);
 
@@ -192,10 +203,13 @@ export async function patchFromDateAndExportAction(
     });
 
     if (changeCount > 0) {
-      await createScheduleVersion(seasonId, patched, fromDate);
+      const draftVersion = await createScheduleVersion(seasonId, patched, fromDate, { isActive: false });
+      const { url } = await exportCurrentSchedule(seasonId, userId, draftVersion.id, true);
+      return { url, isDraft: true };
     }
 
-    return await exportCurrentSchedule(seasonId, userId);
+    const { url } = await exportCurrentSchedule(seasonId, userId, undefined, true);
+    return { url, isDraft: true };
   } catch (err: unknown) {
     console.error("patchFromDateAndExportAction failed:", err);
     return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
@@ -205,7 +219,7 @@ export async function patchFromDateAndExportAction(
 export async function regenerateFromDateAndExportAction(
   seasonId: string,
   fromDateStr: string,
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ url: string; isDraft: boolean } | { error: string }> {
   try {
     const userId = await requireAdmin(seasonId);
 
@@ -237,8 +251,9 @@ export async function regenerateFromDateAndExportAction(
       existingAssignments: existingBefore,
     });
 
-    await createScheduleVersion(seasonId, assignments, fromDate);
-    return await exportCurrentSchedule(seasonId, userId);
+    const draftVersion = await createScheduleVersion(seasonId, assignments, fromDate, { isActive: false });
+    const { url } = await exportCurrentSchedule(seasonId, userId, draftVersion.id, true);
+    return { url, isDraft: true };
   } catch (err: unknown) {
     console.error("regenerateFromDateAndExportAction failed:", err);
     return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
@@ -366,76 +381,93 @@ interface SyncResult {
   };
 }
 
+async function runSync(seasonId: string): Promise<SyncResult> {
+  const [activeExport, currentVersion, seasonDates, members] = await Promise.all([
+    getActiveSheetExport(seasonId),
+    getActiveScheduleVersion(seasonId),
+    getSeasonDates(seasonId),
+    getSeasonMemberNames(seasonId),
+  ]);
+
+  if (!activeExport) throw new Error("אין גיליון פעיל");
+  if (!currentVersion) throw new Error("אין סידור פעיל");
+  if (!seasonDates) throw new Error("עונה לא נמצאה");
+
+  const spreadsheetId = extractSpreadsheetId(activeExport.url);
+  if (!spreadsheetId) throw new Error("לא ניתן לחלץ מזהה גיליון");
+
+  const parsed = await readScheduleSheet(
+    spreadsheetId,
+    seasonDates.startDate,
+  );
+
+  const nameToId = new Map<string, string>();
+  for (const m of members) {
+    nameToId.set(m.soldierProfile.fullName, m.soldierProfile.id);
+  }
+
+  const columnDateKeys = parsed.columnDates.map(dateToString);
+
+  const warnings: string[] = [];
+  let matchedSoldiers = 0;
+  const sheetRows = [];
+
+  for (const row of parsed.soldierRows) {
+    const soldierId = nameToId.get(row.name);
+    if (!soldierId) {
+      warnings.push(row.name);
+      continue;
+    }
+    matchedSoldiers++;
+
+    const cells = [];
+    for (let colIdx = 0; colIdx < row.cellValues.length && colIdx < columnDateKeys.length; colIdx++) {
+      cells.push({ dateKey: columnDateKeys[colIdx], value: row.cellValues[colIdx] });
+    }
+    sheetRows.push({ soldierId, cells });
+  }
+
+  const existingAssignments = toAssignments(currentVersion.assignments);
+  const syncResult = applySheetSync(existingAssignments, sheetRows);
+
+  if (syncResult.changeCount > 0) {
+    await createScheduleVersion(seasonId, syncResult.assignments);
+  }
+
+  return {
+    success: true,
+    changeCount: syncResult.changeCount,
+    warnings,
+    debug: {
+      columnCount: columnDateKeys.length,
+      matchedSoldiers,
+      unmatchedValues: syncResult.unmatchedValues,
+    },
+  };
+}
+
 export async function syncFromSheetAction(
   seasonId: string,
 ): Promise<SyncResult | { error: string }> {
   try {
     await requireAdmin(seasonId);
-
-    const [activeExport, currentVersion, seasonDates, members] = await Promise.all([
-      getActiveSheetExport(seasonId),
-      getActiveScheduleVersion(seasonId),
-      getSeasonDates(seasonId),
-      getSeasonMemberNames(seasonId),
-    ]);
-
-    if (!activeExport) throw new Error("אין גיליון פעיל");
-    if (!currentVersion) throw new Error("אין סידור פעיל");
-    if (!seasonDates) throw new Error("עונה לא נמצאה");
-
-    const spreadsheetId = extractSpreadsheetId(activeExport.url);
-    if (!spreadsheetId) throw new Error("לא ניתן לחלץ מזהה גיליון");
-
-    const parsed = await readScheduleSheet(
-      spreadsheetId,
-      seasonDates.startDate,
-    );
-
-    const nameToId = new Map<string, string>();
-    for (const m of members) {
-      nameToId.set(m.soldierProfile.fullName, m.soldierProfile.id);
-    }
-
-    const columnDateKeys = parsed.columnDates.map(dateToString);
-
-    const warnings: string[] = [];
-    let matchedSoldiers = 0;
-    const sheetRows = [];
-
-    for (const row of parsed.soldierRows) {
-      const soldierId = nameToId.get(row.name);
-      if (!soldierId) {
-        warnings.push(row.name);
-        continue;
-      }
-      matchedSoldiers++;
-
-      const cells = [];
-      for (let colIdx = 0; colIdx < row.cellValues.length && colIdx < columnDateKeys.length; colIdx++) {
-        cells.push({ dateKey: columnDateKeys[colIdx], value: row.cellValues[colIdx] });
-      }
-      sheetRows.push({ soldierId, cells });
-    }
-
-    const existingAssignments = toAssignments(currentVersion.assignments);
-    const syncResult = applySheetSync(existingAssignments, sheetRows);
-
-    if (syncResult.changeCount > 0) {
-      await createScheduleVersion(seasonId, syncResult.assignments);
-    }
-
-    return {
-      success: true,
-      changeCount: syncResult.changeCount,
-      warnings,
-      debug: {
-        columnCount: columnDateKeys.length,
-        matchedSoldiers,
-        unmatchedValues: syncResult.unmatchedValues,
-      },
-    };
+    return await runSync(seasonId);
   } catch (err: unknown) {
     console.error("syncFromSheetAction failed:", err);
+    return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
+  }
+}
+
+export async function activateAndSyncSheetAction(
+  exportId: string,
+  seasonId: string,
+): Promise<SyncResult | { error: string }> {
+  try {
+    await requireAdmin(seasonId);
+    await setActiveSheetExport(exportId, seasonId);
+    return await runSync(seasonId);
+  } catch (err: unknown) {
+    console.error("activateAndSyncSheetAction failed:", err);
     return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
   }
 }
