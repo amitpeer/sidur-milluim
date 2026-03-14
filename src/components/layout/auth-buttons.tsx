@@ -1,15 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { signIn, signOut } from "next-auth/react";
 
 export function AuthButtons({ isLoggedIn }: { readonly isLoggedIn: boolean }) {
+  const [loading, setLoading] = useState(false);
+
   if (isLoggedIn) {
     return (
       <button
-        onClick={() => signOut({ callbackUrl: "/" })}
-        className="text-sm font-medium text-red-600 transition-colors hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+        disabled={loading}
+        onClick={() => {
+          setLoading(true);
+          signOut({ callbackUrl: "/" });
+        }}
+        className="text-sm font-medium text-red-600 transition-colors hover:text-red-800 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
       >
-        התנתק
+        {loading ? "מתנתק..." : "התנתק"}
       </button>
     );
   }
