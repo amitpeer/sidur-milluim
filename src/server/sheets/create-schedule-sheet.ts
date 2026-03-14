@@ -13,19 +13,28 @@ const RED = { red: 0.96, green: 0.8, blue: 0.8 };
 const DARK_RED = { red: 0.9, green: 0.6, blue: 0.6 };
 const DARK_YELLOW = { red: 0.95, green: 0.85, blue: 0.4 };
 const LIGHT_BLUE = { red: 0.6, green: 0.78, blue: 0.95 };
+const DARK_ORANGE = { red: 0.9, green: 0.6, blue: 0.2 };
 const GRAY = { red: 0.9, green: 0.9, blue: 0.9 };
 const HEADER_BG = { red: 0.95, green: 0.95, blue: 0.95 };
 const BOLD_FORMAT = { bold: true };
+
+interface ScheduleMinimums {
+  readonly dailyHeadcount: number;
+  readonly roleMinimums: Readonly<Partial<Record<string, number>>>;
+}
 
 interface SheetLayout {
   readonly firstDataRow: number;
   readonly lastDataRow: number;
   readonly roleRows: ReadonlyMap<string, readonly number[]>;
+  readonly totalRowIndex: number;
+  readonly roleRowIndices: ReadonlyMap<string, number>;
 }
 
 export async function createScheduleSheet(
   data: PreparedBoardData,
   seasonName: string,
+  minimums: ScheduleMinimums,
 ): Promise<string> {
   const sheets = await getGoogleSheetsClient();
   const layout = computeSheetLayout(data);
@@ -69,6 +78,7 @@ export async function createScheduleSheet(
         ...buildMonthMerges(data, sheetId),
         ...buildDriverSeparatorBorder(data, sheetId),
         ...buildConditionalFormatRules(data, sheetId),
+        ...buildTotalMinimumRules(data, layout, minimums, sheetId),
         ...buildDropdownValidation(data, sheetId),
         {
           autoResizeDimensions: {
@@ -109,7 +119,14 @@ function computeSheetLayout(data: PreparedBoardData): SheetLayout {
     }
   });
 
-  return { firstDataRow, lastDataRow, roleRows };
+  const totalRowIndex = 2 + data.nonDrivers.length + 1 + data.drivers.length;
+  const roleRowIndices = new Map<string, number>([
+    ["commander", totalRowIndex + 1],
+    ["driver", totalRowIndex + 2],
+    ["navigator", totalRowIndex + 3],
+  ]);
+
+  return { firstDataRow, lastDataRow, roleRows, totalRowIndex, roleRowIndices };
 }
 
 function buildAllRows(data: PreparedBoardData, layout: SheetLayout): RowData[] {
@@ -304,6 +321,51 @@ function buildConditionalFormatRules(
         },
       },
       index,
+    },
+  }));
+}
+
+function buildTotalMinimumRules(
+  data: PreparedBoardData,
+  layout: SheetLayout,
+  minimums: ScheduleMinimums,
+  sheetId: number,
+): sheets_v4.Schema$Request[] {
+  const colStart = 1;
+  const colEnd = 1 + data.dayColumns.length;
+
+  const rows: { rowIndex: number; minimum: number }[] = [];
+
+  rows.push({ rowIndex: layout.totalRowIndex, minimum: minimums.dailyHeadcount });
+
+  for (const [role, rowIndex] of layout.roleRowIndices) {
+    const min = minimums.roleMinimums[role];
+    if (min != null && min > 0) {
+      rows.push({ rowIndex, minimum: min });
+    }
+  }
+
+  return rows.map(({ rowIndex, minimum }) => ({
+    addConditionalFormatRule: {
+      rule: {
+        ranges: [{
+          sheetId,
+          startRowIndex: rowIndex,
+          endRowIndex: rowIndex + 1,
+          startColumnIndex: colStart,
+          endColumnIndex: colEnd,
+        }],
+        booleanRule: {
+          condition: {
+            type: "NUMBER_LESS" as const,
+            values: [{ userEnteredValue: String(minimum) }],
+          },
+          format: {
+            backgroundColorStyle: { rgbColor: { ...DARK_ORANGE, alpha: 1 } },
+          },
+        },
+      },
+      index: 0,
     },
   }));
 }

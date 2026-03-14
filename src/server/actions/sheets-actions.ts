@@ -67,8 +67,12 @@ async function exportCurrentSchedule(
 
   const data = prepareBoardData(schedule, seasonConfig, constraintKeys);
   const seasonName = seasonNameResult?.name ?? "סידור";
+  const roleMinimums = (seasonConfig.roleMinimums ?? {}) as Partial<Record<string, number>>;
 
-  const url = await createScheduleSheet(data, seasonName);
+  const url = await createScheduleSheet(data, seasonName, {
+    dailyHeadcount: seasonConfig.dailyHeadcount,
+    roleMinimums,
+  });
   await createSheetExport(seasonId, url, userId);
   return { url };
 }
