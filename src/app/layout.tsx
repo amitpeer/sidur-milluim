@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   description: "מערכת לניהול תורנויות מילואים",
   manifest: "/manifest.json",
   themeColor: "#18181b",
+  verification: {
+    google: "AbXTYtZwSrMQetVo42rQeDQfEDvfHQ8NxB12zb6XyuY",
+  },
 };
 
 export default function RootLayout({
