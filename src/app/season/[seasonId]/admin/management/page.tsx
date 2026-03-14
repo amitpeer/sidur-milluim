@@ -72,19 +72,18 @@ export default function AdminManagementPage() {
     if (!settingsState.error && !settingsState.fieldErrors) loadData();
   }, [settingsState]);
 
+  const [actionSuccess, setActionSuccess] = useState("");
+
   const runAction = async (action: () => Promise<{ url: string } | { error: string }>) => {
-    const newTab = window.open("about:blank", "_blank");
     setIsActionPending(true);
     setActionError("");
+    setActionSuccess("");
     const result = await action();
     setIsActionPending(false);
     if ("error" in result) {
-      newTab?.close();
       setActionError(result.error);
     } else {
-      if (newTab) {
-        newTab.location.href = result.url;
-      }
+      setActionSuccess("הסידור יוצא בהצלחה! הגיליון זמין מדף הבית או מרשימת הגרסאות למטה.");
       await loadData();
     }
   };
@@ -295,6 +294,9 @@ export default function AdminManagementPage() {
             )}
             {actionError && (
               <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
+            )}
+            {actionSuccess && (
+              <p className="text-sm text-green-600 dark:text-green-400">{actionSuccess}</p>
             )}
 
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
