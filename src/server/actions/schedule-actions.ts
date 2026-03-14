@@ -4,9 +4,7 @@ import { auth } from "@/server/auth/auth";
 import {
   getSeasonById,
   getSeasonDates,
-  getSeasonSettings,
 } from "@/server/db/stores/season-store";
-import { getSeasonMembers } from "@/server/db/stores/soldier-store";
 import {
   getConstraintsForSeason,
   getConstraintsForSoldier,
@@ -18,6 +16,7 @@ import {
   getAssignmentsForDateRange,
   toggleAssignment,
   setAbsentReason,
+  findAssignment,
 } from "@/server/db/stores/schedule-store";
 import type { AbsentReason } from "@/domain/schedule/schedule.types";
 import { validateSchedule } from "@/domain/schedule/schedule-validator";
@@ -89,18 +88,15 @@ export async function getScheduleWarningsAction(seasonId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const season = await getSeasonById(seasonId);
-  if (!season) return [];
-
-  const version = await getActiveScheduleVersion(seasonId);
-  if (!version) return [];
-
-  const members = await getSeasonMembers(seasonId);
-  const soldiers = buildSeasonSoldiers(members);
+  const [season, version] = await Promise.all([
+    getSeasonById(seasonId),
+    getActiveScheduleVersion(seasonId),
+  ]);
+  if (!season || !version) return [];
 
   return validateSchedule({
     season: toDomainSeason(season),
-    soldiers,
+    soldiers: buildSeasonSoldiers(season.members),
     assignments: version.assignments.map((a) => ({
       soldierProfileId: a.soldierProfileId,
       date: a.date,
@@ -209,14 +205,11 @@ export async function markUnavailableAction(
   const session = await auth();
   if (!session?.user?.id) return { error: "לא מחובר" };
 
-  const version = await getActiveScheduleVersion(seasonId);
-  if (!version) return { error: "אין סידור פעיל" };
+  const versionId = await getActiveScheduleVersionId(seasonId);
+  if (!versionId) return { error: "אין סידור פעיל" };
 
-  const assignment = version.assignments.find(
-    (a) =>
-      a.soldierProfileId === soldierProfileId &&
-      dateToString(new Date(a.date)) === dateStr,
-  );
+  const date = new Date(dateStr + "T00:00:00.000Z");
+  const assignment = await findAssignment(versionId.id, soldierProfileId, date);
 
   if (assignment) {
     await prisma.scheduleAssignment.update({
@@ -236,16 +229,14 @@ export async function getReplacementSuggestionsAction(
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const season = await getSeasonById(seasonId);
-  if (!season) return [];
+  const [season, version, constraints] = await Promise.all([
+    getSeasonById(seasonId),
+    getActiveScheduleVersion(seasonId),
+    getConstraintsForSeason(seasonId),
+  ]);
+  if (!season || !version) return [];
 
-  const version = await getActiveScheduleVersion(seasonId);
-  if (!version) return [];
-
-  const members = await getSeasonMembers(seasonId);
-  const constraints = await getConstraintsForSeason(seasonId);
-  const soldiers = buildSeasonSoldiers(members);
-
+  const soldiers = buildSeasonSoldiers(season.members);
   const soldier = soldiers.find((s) => s.id === soldierProfileId);
   const requiredRoles = soldier?.roles ?? [];
 
@@ -348,19 +339,17 @@ export async function getManagementPageDataAction(seasonId: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const [settings, versions, season, version, members] = await Promise.all([
-    getSeasonSettings(seasonId),
-    getScheduleVersions(seasonId),
+  const [season, versions, version] = await Promise.all([
     getSeasonById(seasonId),
+    getScheduleVersions(seasonId),
     getActiveScheduleVersion(seasonId),
-    getSeasonMembers(seasonId),
   ]);
-  if (!settings || !season) return null;
+  if (!season) return null;
 
   const warnings = version
     ? validateSchedule({
         season: toDomainSeason(season),
-        soldiers: buildSeasonSoldiers(members),
+        soldiers: buildSeasonSoldiers(season.members),
         assignments: version.assignments.map((a) => ({
           soldierProfileId: a.soldierProfileId,
           date: a.date,
@@ -373,6 +362,20 @@ export async function getManagementPageDataAction(seasonId: string) {
       })
     : [];
 
-  return { season: settings, versions, warnings };
+  return {
+    season: {
+      id: season.id,
+      name: season.name,
+      startDate: season.startDate,
+      endDate: season.endDate,
+      trainingEndDate: season.trainingEndDate,
+      dailyHeadcount: season.dailyHeadcount,
+      roleMinimums: season.roleMinimums,
+      constraintDeadline: season.constraintDeadline,
+      cityGroupingEnabled: season.cityGroupingEnabled,
+      maxConsecutiveDays: season.maxConsecutiveDays,
+    },
+    versions,
+    warnings,
+  };
 }
-

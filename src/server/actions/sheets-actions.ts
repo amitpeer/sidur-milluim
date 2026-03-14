@@ -7,6 +7,8 @@ import {
   getSeasonMembers,
   getSeasonMemberNames,
 } from "@/server/db/stores/soldier-store";
+// getSeasonMembers is only used for shareSheetAction (needs user.email)
+// Other actions use season.members from getSeasonById instead
 import {
   getSeasonConfig,
   getSeasonName,
@@ -113,14 +115,13 @@ export async function updateAndExportAction(
     const existing = await getActiveScheduleVersion(seasonId);
 
     if (!existing) {
-      const [season, members, constraints] = await Promise.all([
+      const [season, constraints] = await Promise.all([
         getSeasonById(seasonId),
-        getSeasonMembers(seasonId),
         getConstraintsForSeason(seasonId),
       ]);
       if (!season) throw new Error("עונה לא נמצאה");
 
-      const soldiers = buildSeasonSoldiers(members);
+      const soldiers = buildSeasonSoldiers(season.members);
       const assignments = generateSchedule({
         season: toDomainSeason(season),
         soldiers,
@@ -131,14 +132,13 @@ export async function updateAndExportAction(
       });
       await createScheduleVersion(seasonId, assignments);
     } else {
-      const [season, members, constraints] = await Promise.all([
+      const [season, constraints] = await Promise.all([
         getSeasonById(seasonId),
-        getSeasonMembers(seasonId),
         getConstraintsForSeason(seasonId),
       ]);
       if (!season) throw new Error("עונה לא נמצאה");
 
-      const soldiers = buildSeasonSoldiers(members);
+      const soldiers = buildSeasonSoldiers(season.members);
       const dayOffChecker = new DayOffConstraintChecker(
         constraints.map((c) => ({ soldierProfileId: c.soldierProfileId, date: c.date })),
       );
@@ -169,17 +169,16 @@ export async function patchFromDateAndExportAction(
   try {
     const userId = await requireAdmin(seasonId);
 
-    const [currentVersion, season, members, constraints] = await Promise.all([
+    const [currentVersion, season, constraints] = await Promise.all([
       getActiveScheduleVersion(seasonId),
       getSeasonById(seasonId),
-      getSeasonMembers(seasonId),
       getConstraintsForSeason(seasonId),
     ]);
     if (!currentVersion) throw new Error("אין סידור פעיל");
     if (!season) throw new Error("עונה לא נמצאה");
 
     const fromDate = new Date(fromDateStr + "T00:00:00.000Z");
-    const soldiers = buildSeasonSoldiers(members);
+    const soldiers = buildSeasonSoldiers(season.members);
     const dayOffChecker = new DayOffConstraintChecker(
       constraints.map((c) => ({ soldierProfileId: c.soldierProfileId, date: c.date })),
     );
@@ -210,16 +209,15 @@ export async function regenerateFromDateAndExportAction(
   try {
     const userId = await requireAdmin(seasonId);
 
-    const [currentVersion, season, members, constraints] = await Promise.all([
+    const [currentVersion, season, constraints] = await Promise.all([
       getActiveScheduleVersion(seasonId),
       getSeasonById(seasonId),
-      getSeasonMembers(seasonId),
       getConstraintsForSeason(seasonId),
     ]);
     if (!season) throw new Error("עונה לא נמצאה");
 
     const fromDate = new Date(fromDateStr + "T00:00:00.000Z");
-    const soldiers = buildSeasonSoldiers(members);
+    const soldiers = buildSeasonSoldiers(season.members);
     const constraintList = constraints.map((c) => ({
       soldierProfileId: c.soldierProfileId,
       date: c.date,

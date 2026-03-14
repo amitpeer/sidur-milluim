@@ -1,12 +1,34 @@
-import type { getSeasonById } from "@/server/db/stores/season-store";
-import type { getSeasonMembers } from "@/server/db/stores/soldier-store";
 import type { SeasonSoldier } from "@/domain/soldier/soldier.types";
 import type { Season } from "@/domain/season/season.types";
 import type { SoldierRole } from "@/lib/constants";
 
-export function toDomainSeason(
-  season: NonNullable<Awaited<ReturnType<typeof getSeasonById>>>,
-): Season {
+export interface SeasonRow {
+  readonly id: string;
+  readonly name: string;
+  readonly startDate: Date;
+  readonly endDate: Date;
+  readonly trainingEndDate: Date | null;
+  readonly dailyHeadcount: number;
+  readonly roleMinimums: unknown;
+  readonly constraintDeadline: Date | null;
+  readonly isActive: boolean;
+  readonly cityGroupingEnabled: boolean;
+  readonly maxConsecutiveDays: number | null;
+}
+
+export interface MemberRow {
+  readonly role: string;
+  readonly soldierProfile: {
+    readonly id: string;
+    readonly fullName: string;
+    readonly phone: string | null;
+    readonly city: string | null;
+    readonly roles: string[];
+    readonly isFarAway: boolean;
+  };
+}
+
+export function toDomainSeason(season: SeasonRow): Season {
   return {
     ...season,
     roleMinimums: (season.roleMinimums ?? {}) as Partial<Record<SoldierRole, number>>,
@@ -16,7 +38,7 @@ export function toDomainSeason(
 }
 
 export function buildSeasonSoldiers(
-  members: Awaited<ReturnType<typeof getSeasonMembers>>,
+  members: readonly MemberRow[],
 ): SeasonSoldier[] {
   return members.map((m) => ({
     id: m.soldierProfile.id,

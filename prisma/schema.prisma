@@ -109,6 +109,7 @@ model SeasonMember {
   createdAt         DateTime       @default(now())
 
   @@unique([seasonId, soldierProfileId])
+  @@index([seasonId])
 }
 
 model DayOffConstraint {
@@ -121,6 +122,7 @@ model DayOffConstraint {
   createdAt         DateTime       @default(now())
 
   @@unique([seasonId, soldierProfileId, date])
+  @@index([seasonId])
 }
 
 model ScheduleVersion {
