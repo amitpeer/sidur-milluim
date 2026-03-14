@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signIn } from "@/server/auth/auth";
 
 export default function LoginPage() {
@@ -24,6 +25,12 @@ export default function LoginPage() {
             התחברות עם Google
           </button>
         </form>
+        <Link
+          href="/privacy"
+          className="text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+        >
+          מדיניות פרטיות
+        </Link>
       </div>
     </main>
   );
