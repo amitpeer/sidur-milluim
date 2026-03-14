@@ -68,7 +68,7 @@ async function exportCurrentSchedule(
   const data = prepareBoardData(schedule, seasonConfig, constraintKeys);
   const seasonName = seasonNameResult?.name ?? "סידור";
 
-  const url = await createScheduleSheet(data, seasonName, userId);
+  const url = await createScheduleSheet(data, seasonName);
   await createSheetExport(seasonId, url, userId);
   return { url };
 }
@@ -87,7 +87,7 @@ function toAssignments(
   }));
 }
 
-async function requireAdmin(seasonId: string) {
+async function requireAdmin(seasonId: string): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("לא מחובר");
 
@@ -325,7 +325,7 @@ export async function shareSheetAction(
       .map((m) => m.soldierProfile.user.email)
       .filter(Boolean);
 
-    const drive = await getGoogleDriveClient(sheetExport.createdById);
+    const drive = await getGoogleDriveClient();
 
     await Promise.allSettled(
       emails.map((email) =>
@@ -368,7 +368,7 @@ export async function syncFromSheetAction(
   seasonId: string,
 ): Promise<SyncResult | { error: string }> {
   try {
-    const userId = await requireAdmin(seasonId);
+    await requireAdmin(seasonId);
 
     const [activeExport, currentVersion, seasonDates, members] = await Promise.all([
       getActiveSheetExport(seasonId),
@@ -386,7 +386,6 @@ export async function syncFromSheetAction(
 
     const parsed = await readScheduleSheet(
       spreadsheetId,
-      activeExport.createdById,
       seasonDates.startDate,
     );
 

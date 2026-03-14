@@ -24,9 +24,8 @@ interface SheetLayout {
 export async function createScheduleSheet(
   data: PreparedBoardData,
   seasonName: string,
-  userId: string,
 ): Promise<string> {
-  const sheets = await getGoogleSheetsClient(userId);
+  const sheets = await getGoogleSheetsClient();
   const layout = computeSheetLayout(data);
   const rows = buildAllRows(data, layout);
 

@@ -65,10 +65,9 @@ function parseDayHeaders(headerRow: unknown[], seasonStart: Date): Date[] {
 
 export async function readScheduleSheet(
   spreadsheetId: string,
-  userId: string,
   seasonStart: Date,
 ): Promise<ParsedSheet> {
-  const sheets = await getGoogleSheetsClient(userId);
+  const sheets = await getGoogleSheetsClient();
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,

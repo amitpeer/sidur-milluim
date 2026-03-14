@@ -73,7 +73,7 @@ export async function setActiveSheetExport(
 export async function getSheetExportById(exportId: string) {
   return prisma.sheetExport.findUnique({
     where: { id: exportId },
-    select: { url: true, createdById: true },
+    select: { url: true },
   });
 }
 
@@ -87,7 +87,7 @@ export async function markSheetAsShared(exportId: string): Promise<void> {
 export async function getActiveSheetExport(seasonId: string) {
   return prisma.sheetExport.findFirst({
     where: { seasonId, isActive: true },
-    select: { id: true, url: true, createdById: true },
+    select: { id: true, url: true },
     orderBy: { createdAt: "desc" },
   });
 }
