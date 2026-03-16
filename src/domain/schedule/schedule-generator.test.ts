@@ -294,6 +294,93 @@ describe("generateSchedule", () => {
     }
   });
 
+  it("does not create blocks shorter than minConsecutiveDays in the main loop", () => {
+    const season = buildSeason({
+      minConsecutiveDays: 4,
+      dailyHeadcount: 3,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-03-28T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 10 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+
+    for (const soldier of soldiers) {
+      const blocks = getBlockLengths(assignments, soldier.id);
+      for (const blockLen of blocks) {
+        expect(blockLen).toBeGreaterThanOrEqual(4);
+      }
+    }
+  });
+
+  it("prefers soldiers with adjacent assignments in fillUnderfilledDays", () => {
+    const season = buildSeason({
+      minConsecutiveDays: 3,
+      dailyHeadcount: 2,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-03-14T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 8 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+
+    for (const soldier of soldiers) {
+      const blocks = getBlockLengths(assignments, soldier.id);
+      const isolatedStints = blocks.filter((b) => b < 3);
+      expect(isolatedStints.length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("still meets headcount even when minConsecutiveDays cannot be satisfied", () => {
+    const season = buildSeason({
+      minConsecutiveDays: 5,
+      dailyHeadcount: 3,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-03-14T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 10 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+
+    const days = eachDayInRange(season.startDate, season.endDate);
+    for (const day of days) {
+      const dateStr = dateToString(day);
+      const onBase = assignments.filter(
+        (a) => dateToString(a.date) === dateStr && a.isOnBase,
+      );
+      expect(onBase.length).toBe(3);
+    }
+  });
+
+  it("respects both minConsecutiveDays and maxConsecutiveDays together", () => {
+    const season = buildSeason({
+      minConsecutiveDays: 4,
+      maxConsecutiveDays: 6,
+      dailyHeadcount: 3,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-03-28T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 10 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+
+    for (const soldier of soldiers) {
+      const blocks = getBlockLengths(assignments, soldier.id);
+      for (const blockLen of blocks) {
+        expect(blockLen).toBeLessThanOrEqual(6);
+      }
+    }
+
+    const days = eachDayInRange(season.startDate, season.endDate);
+    for (const day of days) {
+      const dateStr = dateToString(day);
+      const onBase = assignments.filter(
+        (a) => dateToString(a.date) === dateStr && a.isOnBase,
+      );
+      expect(onBase.length).toBe(3);
+    }
+  });
+
   it("respects role minimums when specified", () => {
     const season = buildSeason({
       dailyHeadcount: 4,

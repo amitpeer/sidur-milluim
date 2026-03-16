@@ -115,6 +115,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
         soldiers,
         season.cityGroupingEnabled ? soldier.city : null,
         season.maxConsecutiveDays,
+        season.minConsecutiveDays,
       );
 
       if (blockStart === -1) break;
@@ -129,6 +130,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
         blockMin,
         blockMax,
         season.maxConsecutiveDays,
+        season.minConsecutiveDays,
       );
 
       for (let i = blockStart; i < blockStart + blockLen && i < operationalDays.length; i++) {
@@ -165,6 +167,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
     assignments,
     season.cityGroupingEnabled,
     season.maxConsecutiveDays,
+    season.minConsecutiveDays,
   );
 
   fixRoleCoverage(
@@ -231,10 +234,12 @@ function findBestBlockStart(
   allSoldiers: readonly SeasonSoldier[],
   soldierCity: string | null,
   maxConsecutiveDays: number | null,
+  minConsecutiveDays: number | null,
 ): number {
+  const flooredBlockMin = Math.max(blockMin, minConsecutiveDays ?? 0);
   const effectiveBlockMin = maxConsecutiveDays !== null
-    ? Math.min(blockMin, maxConsecutiveDays)
-    : blockMin;
+    ? Math.min(flooredBlockMin, maxConsecutiveDays)
+    : flooredBlockMin;
   let bestStart = -1;
   let bestScore = -Infinity;
 
@@ -302,10 +307,12 @@ function calculateBlockLength(
   blockMin: number,
   blockMax: number,
   maxConsecutiveDays: number | null,
+  minConsecutiveDays: number | null,
 ): number {
   const effectiveMax = maxConsecutiveDays !== null
     ? Math.min(blockMax, maxConsecutiveDays)
     : blockMax;
+  const effectiveMin = Math.max(blockMin, minConsecutiveDays ?? 0);
   let len = 0;
   for (let i = startIdx; i < days.length && len < effectiveMax; i++) {
     const dateStr = dateToString(days[i]);
@@ -315,7 +322,7 @@ function calculateBlockLength(
     ) {
       break;
     }
-    if (daySlots.get(dateStr)!.size >= headcount && len >= blockMin) {
+    if (daySlots.get(dateStr)!.size >= headcount && len >= effectiveMin) {
       break;
     }
     len++;
@@ -333,6 +340,7 @@ function fillUnderfilledDays(
   assignments: ScheduleAssignment[],
   cityGroupingEnabled: boolean,
   maxConsecutiveDays: number | null,
+  minConsecutiveDays: number | null,
 ): void {
   for (const day of days) {
     const dateStr = dateToString(day);
@@ -349,6 +357,12 @@ function fillUnderfilledDays(
       if (available.length === 0) break;
 
       available.sort((a, b) => {
+        if (minConsecutiveDays !== null) {
+          const aAdj = hasAdjacentDay(a.id, dateStr, daySlots, days);
+          const bAdj = hasAdjacentDay(b.id, dateStr, daySlots, days);
+          if (aAdj !== bAdj) return aAdj ? -1 : 1;
+        }
+
         const daysDiff =
           (soldierDays.get(a.id) ?? 0) - (soldierDays.get(b.id) ?? 0);
         if (daysDiff !== 0) return daysDiff;
@@ -450,6 +464,27 @@ function fixRoleCoverage(
       }
     }
   }
+}
+
+function hasAdjacentDay(
+  soldierId: string,
+  dateStr: string,
+  daySlots: Map<string, Set<string>>,
+  days: Date[],
+): boolean {
+  const dayIndex = days.findIndex((d) => dateToString(d) === dateStr);
+  if (dayIndex === -1) return false;
+
+  if (dayIndex > 0) {
+    const prev = dateToString(days[dayIndex - 1]);
+    if (daySlots.get(prev)?.has(soldierId)) return true;
+  }
+  if (dayIndex < days.length - 1) {
+    const next = dateToString(days[dayIndex + 1]);
+    if (daySlots.get(next)?.has(soldierId)) return true;
+  }
+
+  return false;
 }
 
 function countCityOnDay(

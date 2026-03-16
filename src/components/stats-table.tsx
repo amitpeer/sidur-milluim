@@ -5,7 +5,7 @@ import type { SoldierStats } from "@/server/actions/schedule-actions";
 
 type SortField = keyof Pick<
   SoldierStats,
-  "fullName" | "daysOnBase" | "totalDaysOff" | "constraintDaysOff" | "sickDays" | "courseDays"
+  "fullName" | "daysInArmy" | "daysAtHome" | "constraintDaysOff" | "sickDays" | "courseDays"
 >;
 
 type SortDirection = "asc" | "desc";
@@ -16,15 +16,15 @@ const COLUMNS: readonly {
   readonly colorClass: string;
   readonly bgClass: string;
 }[] = [
-  { field: "daysOnBase", label: "בבסיס", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
-  { field: "totalDaysOff", label: "חופש", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
+  { field: "daysInArmy", label: "בצבא", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
+  { field: "daysAtHome", label: "בבית", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
   { field: "constraintDaysOff", label: "אילוצים", colorClass: "text-red-600 dark:text-red-300", bgClass: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200" },
   { field: "sickDays", label: "מחלה", colorClass: "text-amber-700 dark:text-amber-300", bgClass: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
   { field: "courseDays", label: "קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
 ];
 
 export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] }) {
-  const [sortField, setSortField] = useState<SortField>("daysOnBase");
+  const [sortField, setSortField] = useState<SortField>("daysInArmy");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const handleSort = (field: SortField) => {

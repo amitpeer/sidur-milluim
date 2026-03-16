@@ -14,6 +14,7 @@ export interface SeasonRow {
   readonly isActive: boolean;
   readonly cityGroupingEnabled: boolean;
   readonly maxConsecutiveDays: number | null;
+  readonly minConsecutiveDays: number | null;
 }
 
 export interface MemberRow {
@@ -34,6 +35,7 @@ export function toDomainSeason(season: SeasonRow): Season {
     roleMinimums: (season.roleMinimums ?? {}) as Partial<Record<SoldierRole, number>>,
     cityGroupingEnabled: season.cityGroupingEnabled ?? true,
     maxConsecutiveDays: season.maxConsecutiveDays ?? null,
+    minConsecutiveDays: season.minConsecutiveDays ?? null,
   };
 }
 

@@ -338,25 +338,8 @@ export async function shareSheetAction(
 
     // TODO: filter by confirmed members once confirmation feature exists
     const members = await getSeasonMembers(seasonId);
-    const emails = members
-      .map((m) => m.soldierProfile.user.email)
-      .filter(Boolean);
 
-    const drive = await getGoogleDriveClient();
-
-    await Promise.allSettled(
-      emails.map((email) =>
-        drive.permissions.create({
-          fileId: spreadsheetId,
-          requestBody: {
-            role: "reader",
-            type: "user",
-            emailAddress: email,
-          },
-          sendNotificationEmail: false,
-        }),
-      ),
-    );
+    await shareWithMembers(spreadsheetId, members);
 
     await markSheetAsShared(exportId);
     return { success: true };
@@ -364,6 +347,31 @@ export async function shareSheetAction(
     console.error("shareSheetAction failed:", err);
     return { error: err instanceof Error ? err.message : "שגיאה לא צפויה" };
   }
+}
+
+type MemberWithEmail = Awaited<ReturnType<typeof getSeasonMembers>>[number];
+
+async function shareWithMembers(
+  spreadsheetId: string,
+  members: readonly MemberWithEmail[],
+): Promise<void> {
+  const drive = await getGoogleDriveClient();
+
+  await Promise.allSettled(
+    members
+      .filter((m) => m.soldierProfile.user.email)
+      .map((m) =>
+        drive.permissions.create({
+          fileId: spreadsheetId,
+          requestBody: {
+            role: m.role === "admin" ? "writer" : "reader",
+            type: "user",
+            emailAddress: m.soldierProfile.user.email,
+          },
+          sendNotificationEmail: false,
+        }),
+      ),
+  );
 }
 
 function extractSpreadsheetId(url: string): string | null {
@@ -465,6 +473,17 @@ export async function activateAndSyncSheetAction(
   try {
     await requireAdmin(seasonId);
     await setActiveSheetExport(exportId, seasonId);
+
+    const sheetExport = await getSheetExportById(exportId);
+    if (sheetExport) {
+      const spreadsheetId = extractSpreadsheetId(sheetExport.url);
+      if (spreadsheetId) {
+        const members = await getSeasonMembers(seasonId);
+        await shareWithMembers(spreadsheetId, members);
+        await markSheetAsShared(exportId);
+      }
+    }
+
     return await runSync(seasonId);
   } catch (err: unknown) {
     console.error("activateAndSyncSheetAction failed:", err);

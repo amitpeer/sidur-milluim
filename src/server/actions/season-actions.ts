@@ -96,6 +96,7 @@ const updateSeasonSchema = z.object({
   roleMinimums: z.string().optional(),
   cityGroupingEnabled: z.string().optional(),
   maxConsecutiveDays: z.string().optional(),
+  minConsecutiveDays: z.string().optional(),
 });
 
 export async function updateSeasonAction(
@@ -118,6 +119,7 @@ export async function updateSeasonAction(
     roleMinimums: formData.get("roleMinimums") || undefined,
     cityGroupingEnabled: formData.get("cityGroupingEnabled") || undefined,
     maxConsecutiveDays: formData.get("maxConsecutiveDays") ?? undefined,
+    minConsecutiveDays: formData.get("minConsecutiveDays") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -166,6 +168,10 @@ export async function updateSeasonAction(
   if (parsed.data.maxConsecutiveDays !== undefined) {
     const raw = parsed.data.maxConsecutiveDays.trim();
     data.maxConsecutiveDays = raw === "" ? null : parseInt(raw, 10);
+  }
+  if (parsed.data.minConsecutiveDays !== undefined) {
+    const raw = parsed.data.minConsecutiveDays.trim();
+    data.minConsecutiveDays = raw === "" ? null : parseInt(raw, 10);
   }
 
   await updateSeason(seasonId, data);

@@ -264,8 +264,8 @@ export async function getReplacementSuggestionsAction(
 export interface SoldierStats {
   id: string;
   fullName: string;
-  daysOnBase: number;
-  totalDaysOff: number;
+  daysInArmy: number;
+  daysAtHome: number;
   constraintDaysOff: number;
   sickDays: number;
   courseDays: number;
@@ -319,8 +319,9 @@ export async function getSoldierStatsAction(
       const constraintDaysOff = constraintCounts.get(id) ?? 0;
       const sickDays = sickCounts.get(id) ?? 0;
       const courseDays = courseCounts.get(id) ?? 0;
-      const totalDaysOff = totalDays - daysOnBase;
-      return { id, fullName, daysOnBase, totalDaysOff, constraintDaysOff, sickDays, courseDays };
+      const daysInArmy = daysOnBase + courseDays;
+      const daysAtHome = totalDays - daysInArmy;
+      return { id, fullName, daysInArmy, daysAtHome, constraintDaysOff, sickDays, courseDays };
     });
 }
 
@@ -374,6 +375,7 @@ export async function getManagementPageDataAction(seasonId: string) {
       constraintDeadline: season.constraintDeadline,
       cityGroupingEnabled: season.cityGroupingEnabled,
       maxConsecutiveDays: season.maxConsecutiveDays,
+      minConsecutiveDays: season.minConsecutiveDays,
     },
     versions,
     warnings,

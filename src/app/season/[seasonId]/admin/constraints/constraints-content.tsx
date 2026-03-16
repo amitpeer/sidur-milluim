@@ -93,6 +93,8 @@ export function AdminConstraintsContent({ seasonId, initialData }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    const confirmed = window.confirm("למחוק את האילוץ הזה?");
+    if (!confirmed) return;
     await adminDeleteConstraintAction(id, seasonId);
     await load();
   };

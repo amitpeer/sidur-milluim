@@ -486,6 +486,14 @@ export function ManagementContent({
               <input type="hidden" name="roleMinimums" id="roleMinimums" />
             </div>
             <SettingsField
+              label="מינימום ימים רצופים"
+              name="minConsecutiveDays"
+              type="number"
+              defaultValue={season.minConsecutiveDays != null ? String(season.minConsecutiveDays) : ""}
+              min="1"
+              inputMode="numeric"
+            />
+            <SettingsField
               label="מקסימום ימים רצופים"
               name="maxConsecutiveDays"
               type="number"

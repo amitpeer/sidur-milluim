@@ -90,6 +90,7 @@ model Season {
   constraintDeadline    DateTime?
   cityGroupingEnabled   Boolean            @default(true)
   maxConsecutiveDays    Int?
+  minConsecutiveDays    Int?
   isActive              Boolean            @default(true)
   members             SeasonMember[]
   dayOffConstraints   DayOffConstraint[]
