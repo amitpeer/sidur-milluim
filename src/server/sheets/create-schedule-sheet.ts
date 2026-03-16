@@ -167,8 +167,10 @@ function buildMonthHeaderRow(data: PreparedBoardData): RowData {
 function buildDayHeaderRow(data: PreparedBoardData): RowData {
   const cells: CellData[] = [makeCell("שם", BOLD_FORMAT, HEADER_BG)];
   for (const col of data.dayColumns) {
+    const dd = String(col.dateNumber).padStart(2, "0");
+    const mm = String(col.date.getUTCMonth() + 1).padStart(2, "0");
     cells.push(
-      makeCell(`${col.dateNumber} ${col.dayName}`, BOLD_FORMAT, HEADER_BG, "CENTER"),
+      makeCell(`${col.dayName} ${dd}/${mm}`, BOLD_FORMAT, HEADER_BG, "CENTER"),
     );
   }
   return { values: cells };

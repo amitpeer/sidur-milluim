@@ -17,6 +17,7 @@ export function buildSeason(overrides: Partial<Season> = {}): Season {
     cityGroupingEnabled: true,
     maxConsecutiveDays: null,
     minConsecutiveDays: null,
+    farAwayExtraDays: null,
     ...overrides,
   };
 }

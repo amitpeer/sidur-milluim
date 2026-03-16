@@ -376,6 +376,7 @@ export async function getManagementPageDataAction(seasonId: string) {
       cityGroupingEnabled: season.cityGroupingEnabled,
       maxConsecutiveDays: season.maxConsecutiveDays,
       minConsecutiveDays: season.minConsecutiveDays,
+      farAwayExtraDays: season.farAwayExtraDays ?? null,
     },
     versions,
     warnings,

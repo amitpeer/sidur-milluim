@@ -15,6 +15,7 @@ export interface SeasonRow {
   readonly cityGroupingEnabled: boolean;
   readonly maxConsecutiveDays: number | null;
   readonly minConsecutiveDays: number | null;
+  readonly farAwayExtraDays: number | null;
 }
 
 export interface MemberRow {
@@ -36,6 +37,7 @@ export function toDomainSeason(season: SeasonRow): Season {
     cityGroupingEnabled: season.cityGroupingEnabled ?? true,
     maxConsecutiveDays: season.maxConsecutiveDays ?? null,
     minConsecutiveDays: season.minConsecutiveDays ?? null,
+    farAwayExtraDays: season.farAwayExtraDays ?? null,
   };
 }
 

@@ -93,11 +93,12 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
 
   for (const soldier of sorted) {
     const isFar = soldier.isFarAway;
-    const blockMin = isFar ? FAR_BLOCK_MIN : NEAR_BLOCK_MIN;
-    const blockMax = isFar ? FAR_BLOCK_MAX : NEAR_BLOCK_MAX;
-    const targetDays = isFar
-      ? Math.round(soldierDaysTarget * 1.2)
-      : soldierDaysTarget;
+    const extra = isFar ? (season.farAwayExtraDays ?? 0) : 0;
+    const baseMin = season.minConsecutiveDays ?? (isFar ? FAR_BLOCK_MIN : NEAR_BLOCK_MIN);
+    const baseMax = season.maxConsecutiveDays ?? (isFar ? FAR_BLOCK_MAX : NEAR_BLOCK_MAX);
+    const blockMin = baseMin + extra;
+    const blockMax = baseMax + extra;
+    const targetDays = soldierDaysTarget;
 
     let assigned = soldierDays.get(soldier.id) ?? 0;
 
@@ -109,13 +110,11 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
         constraintSet,
         headcount,
         blockMin,
-        blockMax,
         season.roleMinimums,
         soldier.roles,
         soldiers,
         season.cityGroupingEnabled ? soldier.city : null,
-        season.maxConsecutiveDays,
-        season.minConsecutiveDays,
+        blockMax,
       );
 
       if (blockStart === -1) break;
@@ -129,8 +128,6 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
         headcount,
         blockMin,
         blockMax,
-        season.maxConsecutiveDays,
-        season.minConsecutiveDays,
       );
 
       for (let i = blockStart; i < blockStart + blockLen && i < operationalDays.length; i++) {
@@ -228,22 +225,16 @@ function findBestBlockStart(
   constraintSet: Set<string>,
   headcount: number,
   blockMin: number,
-  _blockMax: number,
   roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
   soldierRoles: readonly SoldierRole[],
   allSoldiers: readonly SeasonSoldier[],
   soldierCity: string | null,
-  maxConsecutiveDays: number | null,
-  minConsecutiveDays: number | null,
+  blockMax: number,
 ): number {
-  const flooredBlockMin = Math.max(blockMin, minConsecutiveDays ?? 0);
-  const effectiveBlockMin = maxConsecutiveDays !== null
-    ? Math.min(flooredBlockMin, maxConsecutiveDays)
-    : flooredBlockMin;
   let bestStart = -1;
   let bestScore = -Infinity;
 
-  for (let i = 0; i <= days.length - effectiveBlockMin; i++) {
+  for (let i = 0; i <= days.length - blockMin; i++) {
     const dateStr = dateToString(days[i]);
     const slots = daySlots.get(dateStr)!;
 
@@ -251,7 +242,7 @@ function findBestBlockStart(
     if (isConstrained(soldierId, dateStr, constraintSet)) continue;
     if (slots.size >= headcount) continue;
 
-    if (wouldExceedMaxConsecutive(soldierId, dateStr, daySlots, days, maxConsecutiveDays)) continue;
+    if (wouldExceedMaxConsecutive(soldierId, dateStr, daySlots, days, blockMax)) continue;
 
     let consecutiveFree = 0;
     for (let j = i; j < days.length; j++) {
@@ -265,10 +256,10 @@ function findBestBlockStart(
       consecutiveFree++;
     }
 
-    if (consecutiveFree < effectiveBlockMin) continue;
+    if (consecutiveFree < blockMin) continue;
 
     let score = 0;
-    for (let j = i; j < Math.min(i + effectiveBlockMin, days.length); j++) {
+    for (let j = i; j < Math.min(i + blockMin, days.length); j++) {
       const ds = dateToString(days[j]);
       const s = daySlots.get(ds)!;
       score += headcount - s.size;
@@ -306,15 +297,9 @@ function calculateBlockLength(
   headcount: number,
   blockMin: number,
   blockMax: number,
-  maxConsecutiveDays: number | null,
-  minConsecutiveDays: number | null,
 ): number {
-  const effectiveMax = maxConsecutiveDays !== null
-    ? Math.min(blockMax, maxConsecutiveDays)
-    : blockMax;
-  const effectiveMin = Math.max(blockMin, minConsecutiveDays ?? 0);
   let len = 0;
-  for (let i = startIdx; i < days.length && len < effectiveMax; i++) {
+  for (let i = startIdx; i < days.length && len < blockMax; i++) {
     const dateStr = dateToString(days[i]);
     if (
       isConstrained(soldierId, dateStr, constraintSet) ||
@@ -322,7 +307,7 @@ function calculateBlockLength(
     ) {
       break;
     }
-    if (daySlots.get(dateStr)!.size >= headcount && len >= effectiveMin) {
+    if (daySlots.get(dateStr)!.size >= headcount && len >= blockMin) {
       break;
     }
     len++;

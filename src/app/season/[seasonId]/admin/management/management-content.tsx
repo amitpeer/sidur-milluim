@@ -501,6 +501,14 @@ export function ManagementContent({
               min="1"
               inputMode="numeric"
             />
+            <SettingsField
+              label="ימים נוספים לרחוקים"
+              name="farAwayExtraDays"
+              type="number"
+              defaultValue={season.farAwayExtraDays != null ? String(season.farAwayExtraDays) : ""}
+              min="0"
+              inputMode="numeric"
+            />
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
                 <input

@@ -91,6 +91,7 @@ model Season {
   cityGroupingEnabled   Boolean            @default(true)
   maxConsecutiveDays    Int?
   minConsecutiveDays    Int?
+  farAwayExtraDays      Int?
   isActive              Boolean            @default(true)
   members             SeasonMember[]
   dayOffConstraints   DayOffConstraint[]

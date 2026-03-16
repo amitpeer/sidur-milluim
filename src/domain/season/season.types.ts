@@ -13,4 +13,5 @@ export interface Season {
   readonly cityGroupingEnabled: boolean;
   readonly maxConsecutiveDays: number | null;
   readonly minConsecutiveDays: number | null;
+  readonly farAwayExtraDays: number | null;
 }

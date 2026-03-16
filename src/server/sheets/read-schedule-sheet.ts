@@ -52,12 +52,22 @@ function inferColumnStartDate(firstDayOfMonth: number, seasonStart: Date): Date 
   return best;
 }
 
+function parseDayNumber(header: string): number | null {
+  // New format: "א 15/03" — extract dd from dd/mm
+  const slashMatch = header.match(/(\d{1,2})\/(\d{1,2})/);
+  if (slashMatch) return parseInt(slashMatch[1], 10);
+
+  // Legacy format: "15 א" — leading number
+  const num = parseInt(header, 10);
+  return isNaN(num) ? null : num;
+}
+
 function parseDayHeaders(headerRow: unknown[], seasonStart: Date): Date[] {
   const headers = headerRow.slice(1);
   if (headers.length === 0) return [];
 
-  const firstDay = parseInt(String(headers[0] ?? ""), 10);
-  if (isNaN(firstDay)) return [];
+  const firstDay = parseDayNumber(String(headers[0] ?? ""));
+  if (firstDay === null) return [];
 
   const startDate = inferColumnStartDate(firstDay, seasonStart);
   return headers.map((_, i) => addDays(startDate, i));

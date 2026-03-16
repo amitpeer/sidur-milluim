@@ -79,6 +79,7 @@ export async function getSeasonSettings(id: string) {
       cityGroupingEnabled: true,
       maxConsecutiveDays: true,
       minConsecutiveDays: true,
+      farAwayExtraDays: true,
     },
   });
 }
@@ -125,6 +126,7 @@ export async function updateSeason(
     cityGroupingEnabled?: boolean;
     maxConsecutiveDays?: number | null;
     minConsecutiveDays?: number | null;
+    farAwayExtraDays?: number | null;
     isActive?: boolean;
   },
 ) {
