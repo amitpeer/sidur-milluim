@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState, useRef } from "react";
 import {
   addSoldierToSeasonAction,
   getSeasonMembersAction,
+  getPendingApprovalUsersAction,
+  approveUserAction,
   removeSoldierFromSeasonAction,
   toggleFarAwayAction,
   updateSoldierProfileAction,
@@ -34,16 +36,26 @@ const TABS: readonly { readonly key: Tab; readonly label: string }[] = [
 const initialState: SoldierActionState = {};
 
 type Members = Awaited<ReturnType<typeof getSeasonMembersAction>>;
+type PendingUsers = Awaited<ReturnType<typeof getPendingApprovalUsersAction>>;
 
 interface Props {
   readonly seasonId: string;
   readonly initialMembers: Members;
+  readonly initialPendingUsers: PendingUsers;
   readonly cities: string[];
 }
 
-export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
+export function SoldiersContent({
+  seasonId,
+  initialMembers,
+  initialPendingUsers,
+  cities,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("chayyalim");
   const [members, setMembers] = useState(initialMembers);
+  const [pendingUsers, setPendingUsers] = useState(initialPendingUsers);
+  const [pendingApprovals, setPendingApprovals] = useState<Record<string, boolean>>({});
+  const [approvalMessage, setApprovalMessage] = useState("");
   const [newCity, setNewCity] = useState("");
   const [stats, setStats] = useState<SoldierStats[]>([]);
   const [statsLoaded, setStatsLoaded] = useState(false);
@@ -51,6 +63,11 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
   const loadMembers = async () => {
     const data = await getSeasonMembersAction(seasonId);
     setMembers(data);
+  };
+
+  const loadPendingUsers = async () => {
+    const data = await getPendingApprovalUsersAction(seasonId);
+    setPendingUsers(data);
   };
 
   useEffect(() => {
@@ -64,16 +81,16 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
 
   const addSoldierBound = addSoldierToSeasonAction.bind(null, seasonId);
   const [state, formAction, isPending] = useActionState(
-    addSoldierBound,
+    async (prevState: SoldierActionState, formData: FormData) => {
+      const result = await addSoldierBound(prevState, formData);
+      if (result.success) {
+        setNewCity("");
+        await loadMembers();
+      }
+      return result;
+    },
     initialState,
   );
-
-  useEffect(() => {
-    if (state.success) {
-      setNewCity("");
-      loadMembers();
-    }
-  }, [state]);
 
   type Member = (typeof members)[number];
 
@@ -141,6 +158,22 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
     await setMemberRoleAction(seasonId, soldierProfileId, newRole);
   };
 
+  const handleApproveUser = async (userId: string) => {
+    setPendingApprovals((prev) => ({ ...prev, [userId]: true }));
+    setApprovalMessage("");
+    const result = await approveUserAction(seasonId, userId);
+    setPendingApprovals((prev) => ({ ...prev, [userId]: false }));
+
+    if (result.error) {
+      setApprovalMessage(result.error);
+      return;
+    }
+
+    setApprovalMessage("המשתמש אושר בהצלחה.");
+
+    await Promise.all([loadPendingUsers(), loadMembers()]);
+  };
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
@@ -171,6 +204,37 @@ export function SoldiersContent({ seasonId, initialMembers, cities }: Props) {
 
       {activeTab === "chayyalim" && (
         <>
+      <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="mb-4 text-base font-medium">משתמשים ממתינים לאישור</h3>
+        {approvalMessage && (
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">{approvalMessage}</p>
+        )}
+        {pendingUsers.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">אין משתמשים ממתינים.</p>
+        ) : (
+          <div className="space-y-2">
+            {pendingUsers.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-700"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{user.name ?? "ללא שם"}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{user.email}</span>
+                </div>
+                <button
+                  onClick={() => handleApproveUser(user.id)}
+                  disabled={pendingApprovals[user.id] === true}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {pendingApprovals[user.id] ? "מאשר..." : "אשר משתמש"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="mb-4 text-base font-medium">הוספת חייל</h3>
 

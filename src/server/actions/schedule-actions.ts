@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import {
   getSeasonById,
   getSeasonDates,
@@ -28,14 +28,14 @@ import { prisma } from "@/server/db/client";
 import { buildSeasonSoldiers, toDomainSeason } from "./schedule-mappers";
 
 export async function getActiveScheduleAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
   return getActiveScheduleVersion(seasonId);
 }
 
 export async function getTransitionsDataAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const [seasonDates, activeVersion] = await Promise.all([
     getSeasonDates(seasonId),
@@ -77,16 +77,16 @@ export async function getDayAssignmentsAction(
   seasonId: string,
   dateStr: string,
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const date = new Date(dateStr + "T00:00:00.000Z");
   return getAssignmentsForDateRange(seasonId, date, date);
 }
 
 export async function getScheduleWarningsAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   const [season, version] = await Promise.all([
     getSeasonById(seasonId),
@@ -113,16 +113,16 @@ export async function toggleAssignmentAction(
   assignmentId: string,
   isOnBase: boolean,
 ): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await toggleAssignment(assignmentId, isOnBase);
   return { success: true };
 }
 
 export async function getMyScheduleAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;
@@ -172,8 +172,8 @@ export async function getMyScheduleAction(seasonId: string) {
 }
 
 export async function getScheduleVersionsAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
   return getScheduleVersions(seasonId);
 }
 
@@ -181,8 +181,8 @@ export async function restoreVersionAction(
   versionId: string,
   seasonId: string,
 ): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await prisma.scheduleVersion.updateMany({
     where: { seasonId, isActive: true },
@@ -202,8 +202,8 @@ export async function markUnavailableAction(
   soldierProfileId: string,
   dateStr: string,
 ): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const versionId = await getActiveScheduleVersionId(seasonId);
   if (!versionId) return { error: "אין סידור פעיל" };
@@ -226,8 +226,8 @@ export async function getReplacementSuggestionsAction(
   soldierProfileId: string,
   dateStr: string,
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   const [season, version, constraints] = await Promise.all([
     getSeasonById(seasonId),
@@ -274,8 +274,8 @@ export interface SoldierStats {
 export async function getSoldierStatsAction(
   seasonId: string,
 ): Promise<SoldierStats[]> {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   const [seasonDates, version, constraints] = await Promise.all([
     getSeasonDates(seasonId),
@@ -329,16 +329,16 @@ export async function setAbsentReasonAction(
   assignmentId: string,
   reason: AbsentReason | null,
 ): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await setAbsentReason(assignmentId, reason);
   return { success: true };
 }
 
 export async function getManagementPageDataAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const [season, versions, version] = await Promise.all([
     getSeasonById(seasonId),

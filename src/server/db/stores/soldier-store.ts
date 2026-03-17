@@ -119,7 +119,7 @@ export async function getSeasonMembers(seasonId: string) {
     where: { seasonId },
     include: {
       soldierProfile: {
-        include: { user: { select: { email: true } } },
+        include: { user: { select: { email: true, isApproved: true } } },
       },
     },
   });

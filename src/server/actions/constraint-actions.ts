@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import {
   addDayOffConstraint,
   removeDayOffConstraint,
@@ -43,14 +43,14 @@ export async function removeConstraintAction(
 }
 
 export async function getSeasonConstraintsAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
   return getConstraintsForSeason(seasonId);
 }
 
 export async function getMyConstraintsAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return [];
@@ -61,8 +61,8 @@ export async function getMyConstraintsAction(seasonId: string) {
 export async function getMyProfileIdAction(
   seasonId: string,
 ): Promise<string | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;
@@ -74,8 +74,8 @@ export async function getMyProfileIdAction(
 }
 
 async function verifyAdmin(seasonId: string): Promise<{ isAdmin: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { isAdmin: false, error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { isAdmin: false, error: "לא מחובר" };
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return { isAdmin: false, error: "אין הרשאה" };
@@ -89,8 +89,8 @@ async function verifyAdmin(seasonId: string): Promise<{ isAdmin: boolean; error?
 async function checkConstraintDeadline(
   seasonId: string,
 ): Promise<ConstraintActionState | null> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return { error: "פרופיל לא נמצא" };
@@ -116,8 +116,8 @@ export async function saveConstraintChangesAction(
   const deadlineError = await checkConstraintDeadline(seasonId);
   if (deadlineError) return deadlineError;
 
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return { error: "פרופיל לא נמצא" };
@@ -149,8 +149,8 @@ export async function adminDeleteConstraintAction(
 export async function getProfileCompletionStatusAction(
   seasonId: string,
 ): Promise<{ hasCity: boolean; hasConstraints: boolean } | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;
@@ -163,8 +163,8 @@ export async function getProfileCompletionStatusAction(
 }
 
 export async function getConstraintsPageDataAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;
@@ -200,8 +200,8 @@ export async function adminAddConstraintAction(
 }
 
 export async function getAdminConstraintsPageDataAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const [constraints, members, seasonDates] = await Promise.all([
     getConstraintsForSeason(seasonId),

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { AuthButtons } from "@/components/layout/auth-buttons";
 import { auth } from "@/server/auth/auth";
@@ -22,6 +22,9 @@ export default async function SeasonLayout({
     auth(),
   ]);
   if (!season) notFound();
+  if (session?.user && !session.user.isApproved && !session.user.isAdmin) {
+    redirect("/auth/pending");
+  }
 
   let isAdmin = false;
   if (session?.user?.id) {

@@ -14,7 +14,9 @@ export default async function AdminLayout({
   const { seasonId } = await params;
 
   const session = await auth();
-  if (!session?.user?.id) redirect("/");
+  if (!session?.user?.id || (!session.user.isApproved && !session.user.isAdmin)) {
+    redirect("/");
+  }
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) redirect("/");

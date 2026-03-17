@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import {
   getSoldierProfile,
   isSeasonAdmin,
@@ -100,8 +100,8 @@ function toAssignments(
 }
 
 async function requireAdmin(seasonId: string): Promise<string> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("לא מחובר");
+  const session = await getApprovedSession();
+  if (!session) throw new Error("לא מחובר");
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) throw new Error("פרופיל לא נמצא");
@@ -277,8 +277,8 @@ export async function clearScheduleAction(
 export async function getActiveSheetAction(
   seasonId: string,
 ): Promise<{ url: string } | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const url = await getActiveSheetUrl(seasonId);
   if (!url) return null;
@@ -286,8 +286,8 @@ export async function getActiveSheetAction(
 }
 
 export async function getSheetExportsAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   return getSheetExports(seasonId);
 }
@@ -296,8 +296,8 @@ export async function setActiveSheetExportAction(
   exportId: string,
   seasonId: string,
 ): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return { error: "פרופיל לא נמצא" };
@@ -336,7 +336,6 @@ export async function shareSheetAction(
     const spreadsheetId = sheetExport.url.split("/d/")[1]?.split("/")[0];
     if (!spreadsheetId) throw new Error("לא ניתן לחלץ מזהה גיליון");
 
-    // TODO: filter by confirmed members once confirmation feature exists
     const members = await getSeasonMembers(seasonId);
 
     await shareWithMembers(spreadsheetId, members);
@@ -359,7 +358,7 @@ async function shareWithMembers(
 
   await Promise.allSettled(
     members
-      .filter((m) => m.soldierProfile.user.email)
+      .filter((m) => m.soldierProfile.user.isApproved && m.soldierProfile.user.email)
       .map((m) =>
         drive.permissions.create({
           fileId: spreadsheetId,

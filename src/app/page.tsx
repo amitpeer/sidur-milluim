@@ -1,12 +1,17 @@
 import { auth } from "@/server/auth/auth";
 import Link from "next/link";
 import { getActiveSeasonsAction } from "@/server/actions/season-actions";
+import { redirect } from "next/navigation";
+import { AuthButtons } from "@/components/layout/auth-buttons";
 
 export default async function HomePage() {
   const session = await auth();
 
   if (!session?.user) {
     return <LandingPage />;
+  }
+  if (!session.user.isApproved && !session.user.isAdmin) {
+    redirect("/auth/pending");
   }
 
   const seasons = await getActiveSeasonsAction();
@@ -15,9 +20,12 @@ export default async function HomePage() {
     <main className="mx-auto max-w-2xl px-4 py-12">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">סידור מילואים</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {session.user.name}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {session.user.name}
+          </p>
+          <AuthButtons isLoggedIn />
+        </div>
       </div>
 
       {seasons.length > 0 ? (

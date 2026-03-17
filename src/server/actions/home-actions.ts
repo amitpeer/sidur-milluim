@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import { getSoldierProfile } from "@/server/db/stores/soldier-store";
 import { getConstraintsForSoldier } from "@/server/db/stores/constraint-store";
 import { getActiveSheetUrl } from "@/server/db/stores/sheet-store";
@@ -18,8 +18,8 @@ interface HomePageData {
 export async function getHomePageDataAction(
   seasonId: string,
 ): Promise<HomePageData | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;

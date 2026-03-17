@@ -1,7 +1,7 @@
 "use server";
 
 import * as z from "zod/v4";
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import {
   getOrCreateSoldierProfile,
   addSeasonMember,
@@ -10,7 +10,9 @@ import {
   updateFarAway,
   updateSoldierProfile,
   getSoldierProfileWithEmail,
+  getSoldierProfile,
   isSeasonMember,
+  isSeasonAdmin,
 } from "@/server/db/stores/soldier-store";
 import { prisma } from "@/server/db/client";
 import { SOLDIER_ROLES, type SoldierRole } from "@/lib/constants";
@@ -27,13 +29,33 @@ export type SoldierActionState = {
   success?: boolean;
 };
 
+type PendingApprovalUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: Date;
+};
+
+async function requireSeasonAdmin(seasonId: string) {
+  const session = await getApprovedSession();
+  if (!session) return null;
+
+  const profile = await getSoldierProfile(session.user.id);
+  if (!profile) return null;
+
+  const admin = await isSeasonAdmin(seasonId, profile.id);
+  if (!admin) return null;
+
+  return session;
+}
+
 export async function addSoldierToSeasonAction(
   seasonId: string,
   _prevState: SoldierActionState,
   formData: FormData,
 ): Promise<SoldierActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const parsed = addSoldierSchema.safeParse({
     email: formData.get("email"),
@@ -74,8 +96,8 @@ export async function removeSoldierFromSeasonAction(
   seasonId: string,
   soldierProfileId: string,
 ): Promise<SoldierActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await removeSeasonMember(seasonId, soldierProfileId);
   return { success: true };
@@ -85,8 +107,8 @@ export async function toggleFarAwayAction(
   profileId: string,
   isFarAway: boolean,
 ): Promise<SoldierActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await updateFarAway(profileId, isFarAway);
   return { success: true };
@@ -97,8 +119,8 @@ export async function updateSoldierProfileAction(
   field: "city" | "roles" | "fullName",
   value: string | string[],
 ): Promise<SoldierActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   if (field === "fullName") {
     const name = typeof value === "string" ? value.trim() : "";
@@ -119,8 +141,8 @@ export async function updateSoldierProfileAction(
 }
 
 export async function getMyProfileAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
 
   const profile = await getSoldierProfileWithEmail(session.user.id);
   if (!profile) return null;
@@ -143,16 +165,16 @@ export async function setMemberRoleAction(
   soldierProfileId: string,
   role: "admin" | "soldier",
 ): Promise<SoldierActionState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   await addSeasonMember(seasonId, soldierProfileId, role);
   return { success: true };
 }
 
 export async function getSeasonMembersAction(seasonId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
 
   const members = await getSeasonMembers(seasonId);
 
@@ -163,4 +185,50 @@ export async function getSeasonMembersAction(seasonId: string) {
       isFarAway: m.soldierProfile.isFarAway,
     },
   }));
+}
+
+export async function getPendingApprovalUsersAction(
+  seasonId: string,
+): Promise<PendingApprovalUser[]> {
+  const session = await requireSeasonAdmin(seasonId);
+  if (!session) return [];
+
+  return prisma.user.findMany({
+    where: { isApproved: false },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function approveUserAction(
+  seasonId: string,
+  userId: string,
+): Promise<SoldierActionState> {
+  const session = await requireSeasonAdmin(seasonId);
+  if (!session) return { error: "אין הרשאה" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, isApproved: true },
+  });
+  if (!user) return { error: "משתמש לא נמצא" };
+  if (user.isApproved) return { success: true };
+
+  const fullUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isApproved: true },
+  });
+
+  const soldierProfile = await getOrCreateSoldierProfile(userId, {
+    fullName: fullUser.name ?? fullUser.email ?? "ללא שם",
+  });
+
+  await addSeasonMember(seasonId, soldierProfile.id);
+
+  return { success: true };
 }

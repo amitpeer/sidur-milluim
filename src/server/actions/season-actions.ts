@@ -1,7 +1,7 @@
 "use server";
 
 import * as z from "zod/v4";
-import { auth } from "@/server/auth/auth";
+import { getApprovedSession } from "@/server/auth/approval";
 import { redirect } from "next/navigation";
 import {
   createSeason,
@@ -33,8 +33,8 @@ export async function createSeasonAction(
   _prevState: CreateSeasonState,
   formData: FormData,
 ): Promise<CreateSeasonState> {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const session = await getApprovedSession();
+  if (!session) {
     return { error: "לא מחובר" };
   }
 
@@ -75,14 +75,14 @@ export async function createSeasonAction(
 }
 
 export async function getSeasonAction(id: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const session = await getApprovedSession();
+  if (!session) return null;
   return getSeasonById(id);
 }
 
 export async function getActiveSeasonsAction() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const session = await getApprovedSession();
+  if (!session) return [];
   return getActiveSeasons();
 }
 
@@ -105,8 +105,8 @@ export async function updateSeasonAction(
   _prevState: CreateSeasonState,
   formData: FormData,
 ): Promise<CreateSeasonState> {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const session = await getApprovedSession();
+  if (!session) {
     return { error: "לא מחובר" };
   }
 
@@ -187,8 +187,8 @@ export async function updateSeasonAction(
 export async function deleteSeasonAction(
   seasonId: string,
 ): Promise<CreateSeasonState> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "לא מחובר" };
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
 
   const profile = await getOrCreateSoldierProfile(session.user.id, {
     fullName: session.user.name ?? "Unknown",
