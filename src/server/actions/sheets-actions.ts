@@ -25,6 +25,7 @@ import {
 import {
   getConstraintKeys,
   getConstraintsForSeason,
+  syncConstraintsFromSheet,
 } from "@/server/db/stores/constraint-store";
 import {
   getActiveSheetUrl,
@@ -419,6 +420,7 @@ async function runSync(seasonId: string): Promise<SyncResult> {
   const warnings: string[] = [];
   let matchedSoldiers = 0;
   const sheetRows = [];
+  const sheetConstraints: { soldierProfileId: string; date: Date }[] = [];
 
   for (const row of parsed.soldierRows) {
     const soldierId = nameToId.get(row.name);
@@ -430,7 +432,14 @@ async function runSync(seasonId: string): Promise<SyncResult> {
 
     const cells = [];
     for (let colIdx = 0; colIdx < row.cellValues.length && colIdx < columnDateKeys.length; colIdx++) {
-      cells.push({ dateKey: columnDateKeys[colIdx], value: row.cellValues[colIdx] });
+      const dateKey = columnDateKeys[colIdx];
+      cells.push({ dateKey, value: row.cellValues[colIdx] });
+      if (row.cellValues[colIdx] === "X") {
+        sheetConstraints.push({
+          soldierProfileId: soldierId,
+          date: new Date(dateKey + "T00:00:00.000Z"),
+        });
+      }
     }
     sheetRows.push({ soldierId, cells });
   }
@@ -438,13 +447,15 @@ async function runSync(seasonId: string): Promise<SyncResult> {
   const existingAssignments = deduplicateAssignments(toAssignments(currentVersion.assignments));
   const syncResult = applySheetSync(existingAssignments, sheetRows);
 
+  const constraintSync = await syncConstraintsFromSheet(seasonId, sheetConstraints);
+
   if (syncResult.changeCount > 0) {
     await createScheduleVersion(seasonId, syncResult.assignments);
   }
 
   return {
     success: true,
-    changeCount: syncResult.changeCount,
+    changeCount: syncResult.changeCount + constraintSync.added + constraintSync.removed,
     warnings,
     debug: {
       columnCount: columnDateKeys.length,
