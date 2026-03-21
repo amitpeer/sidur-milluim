@@ -309,9 +309,10 @@ export function SoldiersContent({
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
               <th className="px-3 py-2 text-right font-medium">שם</th>
-              <th className="px-3 py-2 text-right font-medium">עיר</th>
               <th className="px-3 py-2 text-right font-medium">תפקידים</th>
               <th className="px-3 py-2 text-right font-medium">סטטוס</th>
+              <th className="min-w-[140px] px-3 py-2 text-right font-medium">עיר</th>
+              <th className="w-12 px-2 py-2 text-center font-medium">מרוחק</th>
             </tr>
           </thead>
           <tbody>
@@ -336,15 +337,6 @@ export function SoldiersContent({
                   </div>
                 </td>
                 <td className="px-3 py-2">
-                  <CityAutocomplete
-                    value={m.soldierProfile.city ?? ""}
-                    onChange={(city) => handleCitySave(m.soldierProfile.id, city)}
-                    cities={cities}
-                    placeholder="—"
-                    inputClassName="w-full border-b border-dashed border-zinc-300 bg-transparent px-1 py-1 text-sm focus:border-zinc-500 focus:outline-none dark:border-zinc-600"
-                  />
-                </td>
-                <td className="px-3 py-2">
                   <RoleMultiSelect
                     current={m.soldierProfile.roles as SoldierRole[]}
                     onChange={(roles) =>
@@ -353,40 +345,45 @@ export function SoldiersContent({
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleToggleAdmin(m.soldierProfile.id, m.role)}
-                      className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                        m.role === "admin"
-                          ? "bg-violet-100 text-violet-800 hover:bg-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:hover:bg-violet-800"
-                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                      }`}
-                    >
-                      {m.role === "admin" ? "מנהל" : "חייל"}
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleToggleFarAway(
-                          m.soldierProfile.id,
-                          m.soldierProfile.isFarAway,
-                        )
-                      }
-                      className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                        m.soldierProfile.isFarAway
-                          ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
-                          : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-700"
-                      }`}
-                    >
-                      מרוחק
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleToggleAdmin(m.soldierProfile.id, m.role)}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                      m.role === "admin"
+                        ? "bg-violet-100 text-violet-800 hover:bg-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:hover:bg-violet-800"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    {m.role === "admin" ? "מנהל" : "חייל"}
+                  </button>
+                </td>
+                <td className="min-w-[140px] px-3 py-2">
+                  <CityAutocomplete
+                    value={m.soldierProfile.city ?? ""}
+                    onChange={(city) => handleCitySave(m.soldierProfile.id, city)}
+                    cities={cities}
+                    placeholder="—"
+                    inputClassName="w-full border-b border-dashed border-zinc-300 bg-transparent px-1 py-1 text-sm focus:border-zinc-500 focus:outline-none dark:border-zinc-600"
+                  />
+                </td>
+                <td className="w-12 px-2 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={m.soldierProfile.isFarAway}
+                    onChange={() =>
+                      handleToggleFarAway(
+                        m.soldierProfile.id,
+                        m.soldierProfile.isFarAway,
+                      )
+                    }
+                    className="h-4 w-4 cursor-pointer accent-amber-500"
+                  />
                 </td>
               </tr>
             ))}
             {members.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-3 py-8 text-center text-zinc-400"
                 >
                   אין חיילים עדיין. הוסיפו חיילים למעלה.

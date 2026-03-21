@@ -140,11 +140,13 @@ function ScheduleSection({ schedule }: { readonly schedule: ScheduleDay[] }) {
         <span className="rounded-full bg-green-100 px-3 py-1 text-green-700 dark:bg-green-900 dark:text-green-200">
           {onBaseDays.length} ימים בבסיס
         </span>
-        <span className="rounded-full bg-red-100 px-3 py-1 text-red-700 dark:bg-red-900 dark:text-red-200">
-          {constraintOffDays.length} ימי אילוץ
-        </span>
         <span className="rounded-full bg-zinc-100 px-3 py-1 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-          {rotationOffDays.length} ימי בבית
+          {rotationOffDays.length + constraintOffDays.length} ימים בבית
+          {constraintOffDays.length > 0 && (
+            <span className="mr-1 text-xs text-zinc-400">
+              ({rotationOffDays.length} רוטציה · {constraintOffDays.length} אילוץ)
+            </span>
+          )}
         </span>
         {sickDays.length > 0 && (
           <span className="rounded-full bg-yellow-100 px-3 py-1 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">

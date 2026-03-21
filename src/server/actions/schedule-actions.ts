@@ -266,6 +266,7 @@ export interface SoldierStats {
   id: string;
   fullName: string;
   daysInArmy: number;
+  totalDaysOff: number;
   daysAtHome: number;
   constraintDaysOff: number;
   sickDays: number;
@@ -336,7 +337,8 @@ export async function getSoldierStatsAction(
       const courseDays = courseCounts.get(id) ?? 0;
       const daysInArmy = daysOnBase + courseDays;
       const daysAtHome = totalDays - daysInArmy - constraintDaysOff;
-      return { id, fullName, daysInArmy, daysAtHome, constraintDaysOff, sickDays, courseDays };
+      const totalDaysOff = daysAtHome + constraintDaysOff;
+      return { id, fullName, daysInArmy, totalDaysOff, daysAtHome, constraintDaysOff, sickDays, courseDays };
     });
 
   return { stats, versionDate: version.generatedAt };
