@@ -1,0 +1,394 @@
+[
+  {
+    "name": "בדיקה",
+    "season": {
+      "id": "cmmgprvfr000004ibqhxvztlj",
+      "name": "בדיקה",
+      "startDate": "2026-04-12T00:00:00.000Z",
+      "endDate": "2026-06-17T00:00:00.000Z",
+      "trainingEndDate": "2026-04-16T00:00:00.000Z",
+      "dailyHeadcount": 8,
+      "roleMinimums": {
+        "driver": 4,
+        "commander": 1,
+        "navigator": 1
+      },
+      "constraintDeadline": "2026-03-21T00:00:00.000Z",
+      "isActive": true,
+      "cityGroupingEnabled": true,
+      "avgDaysArmy": 10,
+      "avgDaysHome": 4,
+      "farAwayExtraDays": null
+    },
+    "soldiers": [
+      {
+        "id": "cmmgm7npe0001gr8zd9p14bh0",
+        "fullName": "עמית פאר",
+        "phone": null,
+        "city": "תל אביב - יפו",
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false,
+        "memberRole": "admin"
+      },
+      {
+        "id": "cmmgsrr740001cj8zmpyd4w07",
+        "fullName": "מתן פויר",
+        "phone": null,
+        "city": "תל אביב - יפו",
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false,
+        "memberRole": "admin"
+      },
+      {
+        "id": "cmmgsrrk20004cj8zf52jbkl8",
+        "fullName": "יוסי כהן",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrs340007cj8z4el0nqy5",
+        "fullName": "אורי לוי",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrskm000acj8zrosuhmrq",
+        "fullName": "תומר אברהם",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrt1i000dcj8z50hzsw3d",
+        "fullName": "עידן פרץ",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrtj6000gcj8zqv5b15ee",
+        "fullName": "רועי מזרחי",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrtzy000jcj8zv56ir4ow",
+        "fullName": "איתי דוד",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsruh3000mcj8zl4ufcf43",
+        "fullName": "נדב ביטון",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsruym000pcj8zrw9cdgaf",
+        "fullName": "גל שמעון",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrvg9000scj8zb6n1m3oe",
+        "fullName": "אלון חדד",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrvxg000vcj8zp9jces1b",
+        "fullName": "דור אוחיון",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrwf7000ycj8zs7a4jcbo",
+        "fullName": "ניר ממן",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrwxz0011cj8zk12z87m2",
+        "fullName": "עומר גבאי",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrxew0014cj8zzr7rbyqo",
+        "fullName": "יונתן רוזנברג",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrxvv0017cj8zi9bh3y54",
+        "fullName": "אריאל שפירא",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsryd9001acj8zp5ozjttm",
+        "fullName": "מאור גולדשטיין",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "driver",
+          "navigator"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsryui001dcj8zb5dpmbbi",
+        "fullName": "בן צור",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgsrzbx001gcj8z5i4xspee",
+        "fullName": "שי קפלן",
+        "phone": null,
+        "city": null,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgss0b2001mcj8zl60t536i",
+        "fullName": "ליאור סבג",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmgss0sb001pcj8z8ljrka5t",
+        "fullName": "דניאל חזן",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmq8qewl01qhji8zdxouozix",
+        "fullName": "שלומי שמואלי",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmqa0bdl037zji8zeqzf8ayl",
+        "fullName": "שמוליק",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmhsm4oh0001d78zkt0m9b9s",
+        "fullName": "נועם הדדי",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      },
+      {
+        "id": "cmmv2glur00013p8z4da14ltv",
+        "fullName": "עמית עבודה",
+        "phone": null,
+        "city": null,
+        "roles": [],
+        "isFarAway": false,
+        "memberRole": "soldier"
+      }
+    ],
+    "constraints": [
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-15T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-16T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrt1i000dcj8z50hzsw3d",
+        "date": "2026-04-24T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsruh3000mcj8zl4ufcf43",
+        "date": "2026-04-18T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrt1i000dcj8z50hzsw3d",
+        "date": "2026-04-16T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsruh3000mcj8zl4ufcf43",
+        "date": "2026-04-16T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsruh3000mcj8zl4ufcf43",
+        "date": "2026-04-17T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrrk20004cj8zf52jbkl8",
+        "date": "2026-04-16T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrr740001cj8zmpyd4w07",
+        "date": "2026-04-23T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrr740001cj8zmpyd4w07",
+        "date": "2026-04-24T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrr740001cj8zmpyd4w07",
+        "date": "2026-05-14T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrr740001cj8zmpyd4w07",
+        "date": "2026-05-15T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrskm000acj8zrosuhmrq",
+        "date": "2026-04-20T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrrk20004cj8zf52jbkl8",
+        "date": "2026-04-17T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsruym000pcj8zrw9cdgaf",
+        "date": "2026-04-27T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgsrtj6000gcj8zqv5b15ee",
+        "date": "2026-04-23T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-23T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-22T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-28T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-27T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-21T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-20T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-19T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-04-30T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-05-23T00:00:00.000Z"
+      },
+      {
+        "soldierProfileId": "cmmgm7npe0001gr8zd9p14bh0",
+        "date": "2026-06-08T00:00:00.000Z"
+      }
+    ]
+  }
+]

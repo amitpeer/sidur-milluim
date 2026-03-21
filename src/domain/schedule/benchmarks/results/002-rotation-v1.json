@@ -1,0 +1,233 @@
+[
+  {
+    "scenarioName": "בדיקה",
+    "config": {
+      "soldiers": 25,
+      "headcount": 8,
+      "avgDaysArmy": 10,
+      "avgDaysHome": 4,
+      "roleMinimums": {
+        "driver": 4,
+        "commander": 1,
+        "navigator": 1
+      },
+      "constraints": 26,
+      "cityGrouping": true
+    },
+    "metrics": {
+      "durationMs": 198,
+      "headcountViolations": 0,
+      "totalOpDays": 62,
+      "roleViolations": 0,
+      "constraintViolations": 0,
+      "totalConstraints": 26,
+      "fairnessVariance": 16,
+      "minDays": 18,
+      "maxDays": 34,
+      "shortBlockCount": 62,
+      "totalBlocks": 157,
+      "shortBlockPct": 39.5,
+      "blockDistribution": {
+        "1": 5,
+        "2": 22,
+        "3": 35,
+        "4": 48,
+        "5": 33,
+        "6": 4,
+        "7": 4,
+        "8": 3,
+        "9": 1,
+        "10": 2
+      }
+    },
+    "perSoldier": [
+      {
+        "name": "אורי לוי",
+        "days": 34,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "יוסי כהן",
+        "days": 32,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "עידן פרץ",
+        "days": 32,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "נדב ביטון",
+        "days": 32,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "מאור גולדשטיין",
+        "days": 32,
+        "roles": [
+          "driver",
+          "navigator"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "גל שמעון",
+        "days": 30,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "תומר אברהם",
+        "days": 29,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "איתי דוד",
+        "days": 27,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "רועי מזרחי",
+        "days": 26,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "אלון חדד",
+        "days": 26,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "אריאל שפירא",
+        "days": 26,
+        "roles": [
+          "driver"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "עמית עבודה",
+        "days": 25,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "יונתן רוזנברג",
+        "days": 24,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "שי קפלן",
+        "days": 23,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "שלומי שמואלי",
+        "days": 22,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "ליאור סבג",
+        "days": 21,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "שמוליק",
+        "days": 21,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "עמית פאר",
+        "days": 20,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "דור אוחיון",
+        "days": 20,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "ניר ממן",
+        "days": 20,
+        "roles": [
+          "navigator"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "מתן פויר",
+        "days": 19,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "עומר גבאי",
+        "days": 19,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "בן צור",
+        "days": 19,
+        "roles": [
+          "commander"
+        ],
+        "isFarAway": false
+      },
+      {
+        "name": "נועם הדדי",
+        "days": 19,
+        "roles": [],
+        "isFarAway": false
+      },
+      {
+        "name": "דניאל חזן",
+        "days": 18,
+        "roles": [],
+        "isFarAway": false
+      }
+    ]
+  }
+]
