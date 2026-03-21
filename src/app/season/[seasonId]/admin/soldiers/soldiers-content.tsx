@@ -34,7 +34,7 @@ const TABS: readonly { readonly key: Tab; readonly label: string }[] = [
   { key: "chayyalim", label: "חיילים" },
   { key: "iluzim", label: "אילוצים" },
   { key: "statistikot", label: "סטטיסטיקות" },
-  { key: "nihul", label: "ניהול סידור" },
+  { key: "nihul", label: "סידור" },
 ];
 
 const initialState: SoldierActionState = {};
