@@ -560,14 +560,9 @@ export function ManagementContent({
                     className="flex flex-col items-start rounded-lg border border-zinc-200 px-3 py-2 text-right transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
                   >
                     <span className="text-sm font-medium">{s.label}</span>
-                    <span className={`text-xs font-medium ${s.warningCount === 0 ? "text-green-600" : s.warningCount <= 5 ? "text-emerald-600" : s.warningCount <= 15 ? "text-amber-600" : "text-red-600"}`}>
-                      {`~${s.warningCount} אזהרות`}
+                    <span className={`text-xs font-medium ${s.warningCount === 0 ? "text-green-600" : s.warningCount <= 3 ? "text-emerald-600" : s.warningCount <= 7 ? "text-amber-600" : "text-red-600"}`}>
+                      {s.warningCount === 0 ? "ללא אזהרות" : `${s.warningCount} ימים בעייתיים · ${s.notes.join(" · ")}`}
                     </span>
-                    {s.notes.length > 0 && (
-                      <span className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                        {s.notes[0]}
-                      </span>
-                    )}
                   </button>
                 ))}
               </div>

@@ -1,5 +1,6 @@
 import type { Season } from "@/domain/season/season.types";
 import type { SeasonSoldier } from "@/domain/soldier/soldier.types";
+import type { ValidationWarning } from "./schedule.types";
 import { generateSchedule } from "./schedule-generator";
 import { validateSchedule } from "./schedule-validator";
 
@@ -58,15 +59,15 @@ export function suggestScheduleConfig(
       assignments,
     });
 
-    const warningCount = warnings.length;
-    const score = Math.max(0, 100 - warningCount * 10);
-    const notes = buildNotes(warningCount, army, home, soldiers.length, season.dailyHeadcount);
+    const warningDays = countUniqueWarningDays(warnings);
+    const score = Math.max(0, 100 - warningDays * 10);
+    const notes = buildNotes(warnings, soldiers.length, season.dailyHeadcount);
 
     results.push({
       avgDaysArmy: army,
       avgDaysHome: home,
       label: buildLabel(army, home),
-      warningCount,
+      warningCount: warningDays,
       feasibilityScore: score,
       notes,
     });
@@ -82,26 +83,20 @@ function buildLabel(army: number, home: number): string {
 }
 
 function buildNotes(
-  warningCount: number,
-  army: number,
-  home: number,
+  warnings: readonly ValidationWarning[],
   soldierCount: number,
   headcount: number,
 ): string[] {
   const notes: string[] = [];
 
-  if (warningCount === 0) {
-    notes.push("אפס אזהרות - מושלם");
-  } else if (warningCount <= 5) {
-    notes.push(`${warningCount} אזהרות`);
-  } else if (warningCount <= 15) {
-    notes.push(`${warningCount} אזהרות - סביר`);
-  } else {
-    notes.push(`${warningCount} אזהרות - בעייתי`);
-  }
+  const headcountDays = countUniqueWarningDays(warnings, "headcount_low");
+  const roleDays = countUniqueWarningDays(warnings, "role_missing");
 
-  if (home < army) {
-    notes.push("ימי בית קצרים מימי צבא");
+  if (headcountDays > 0) {
+    notes.push(`${headcountDays} ימים עם חוסר בכ״א`);
+  }
+  if (roleDays > 0) {
+    notes.push(`${roleDays} ימים עם חוסר בתפקיד`);
   }
 
   const ratio = soldierCount / headcount;
@@ -110,4 +105,16 @@ function buildNotes(
   }
 
   return notes;
+}
+
+function countUniqueWarningDays(
+  warnings: readonly ValidationWarning[],
+  type?: ValidationWarning["type"],
+): number {
+  const days = new Set<number>();
+  for (const w of warnings) {
+    if (type && w.type !== type) continue;
+    days.add(w.date.getTime());
+  }
+  return days.size;
 }
