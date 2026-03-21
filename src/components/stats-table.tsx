@@ -5,7 +5,7 @@ import type { SoldierStats } from "@/server/actions/schedule-actions";
 
 type SortField = keyof Pick<
   SoldierStats,
-  "fullName" | "daysInArmy" | "totalDaysOff" | "sickDays" | "courseDays"
+  "fullName" | "daysInArmy" | "daysAtHome" | "constraintDaysOff" | "sickDays" | "courseDays"
 >;
 
 type SortDirection = "asc" | "desc";
@@ -17,7 +17,8 @@ const COLUMNS: readonly {
   readonly bgClass: string;
 }[] = [
   { field: "daysInArmy", label: "בצבא", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
-  { field: "totalDaysOff", label: "בבית", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
+  { field: "daysAtHome", label: "בבית (רוטציה)", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
+  { field: "constraintDaysOff", label: "בבית (אילוץ)", colorClass: "text-red-600 dark:text-red-300", bgClass: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200" },
   { field: "sickDays", label: "מחלה", colorClass: "text-amber-700 dark:text-amber-300", bgClass: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
   { field: "courseDays", label: "קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
 ];
@@ -111,15 +112,7 @@ export function StatsTable({ stats, versionDate, sheetVersionNumber, lastSyncedA
                 <td className="px-3 py-2 font-medium">{s.fullName}</td>
                 {COLUMNS.map((col) => (
                   <td key={col.field} className={`px-2 py-2 text-center ${col.colorClass}`}>
-                    {col.field === "totalDaysOff" ? (
-                      <HomeBreakdown
-                        total={s.totalDaysOff}
-                        rotation={s.daysAtHome}
-                        constraint={s.constraintDaysOff}
-                      />
-                    ) : (
-                      s[col.field]
-                    )}
+                    {s[col.field]}
                   </td>
                 ))}
               </tr>
@@ -127,27 +120,6 @@ export function StatsTable({ stats, versionDate, sheetVersionNumber, lastSyncedA
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function HomeBreakdown({
-  total,
-  rotation,
-  constraint,
-}: {
-  readonly total: number;
-  readonly rotation: number;
-  readonly constraint: number;
-}) {
-  if (constraint === 0) return <>{total}</>;
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span>{total}</span>
-      <span className="text-[10px] leading-tight text-zinc-400">
-        {rotation} רוטציה · {constraint} אילוץ
-      </span>
     </div>
   );
 }
