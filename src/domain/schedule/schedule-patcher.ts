@@ -251,8 +251,7 @@ function fillUnderstaffedDays(
         soldiers,
         assignments: result,
         constraints,
-        maxConsecutiveDays: season.maxConsecutiveDays,
-        minConsecutiveDays: season.minConsecutiveDays,
+        avgDaysArmy: season.avgDaysArmy,
         cityGroupingEnabled: season.cityGroupingEnabled,
       });
 
@@ -309,8 +308,7 @@ function fixRoleCoverage(
           assignments: result,
           constraints,
           requiredRoles: [role],
-          maxConsecutiveDays: season.maxConsecutiveDays,
-          minConsecutiveDays: season.minConsecutiveDays,
+          avgDaysArmy: season.avgDaysArmy,
           cityGroupingEnabled: season.cityGroupingEnabled,
         });
 

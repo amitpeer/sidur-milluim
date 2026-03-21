@@ -9,7 +9,7 @@ describe("generateSchedule", () => {
     const season = buildSeason({ dailyHeadcount: 3 });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     for (const day of days) {
@@ -39,7 +39,7 @@ describe("generateSchedule", () => {
       },
     ];
 
-    const assignments = generateSchedule({ season, soldiers, constraints });
+    const assignments = generateSchedule({ season, soldiers, constraints, seed: 42 });
 
     const soldier0OnMarch5 = assignments.find(
       (a) =>
@@ -64,7 +64,7 @@ describe("generateSchedule", () => {
       ...Array.from({ length: 8 }, () => buildSoldier()),
     ];
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const farBlocks = getBlockLengths(assignments, farSoldier.id);
     const nearBlocks = getBlockLengths(assignments, nearSoldier.id);
@@ -86,7 +86,7 @@ describe("generateSchedule", () => {
     });
     const soldiers = Array.from({ length: 15 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const totalDays = daysBetween(season.startDate, season.endDate) + 1;
     const expectedPerSoldier = (totalDays * season.dailyHeadcount) / soldiers.length;
@@ -115,7 +115,7 @@ describe("generateSchedule", () => {
     });
     const soldiers = Array.from({ length: 5 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     for (const day of days) {
@@ -136,7 +136,7 @@ describe("generateSchedule", () => {
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const trainingDates = ["2026-03-01", "2026-03-02", "2026-03-03"];
     for (const dateStr of trainingDates) {
@@ -159,7 +159,7 @@ describe("generateSchedule", () => {
       { soldierProfileId: soldiers[0].id, date: new Date("2026-03-02T00:00:00.000Z") },
     ];
 
-    const assignments = generateSchedule({ season, soldiers, constraints });
+    const assignments = generateSchedule({ season, soldiers, constraints, seed: 42 });
 
     const soldier0OnMarch2 = assignments.find(
       (a) =>
@@ -184,7 +184,7 @@ describe("generateSchedule", () => {
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const operationalDates = ["2026-03-03", "2026-03-04", "2026-03-05", "2026-03-06", "2026-03-07"];
     for (const dateStr of operationalDates) {
@@ -213,7 +213,7 @@ describe("generateSchedule", () => {
     );
     const soldiers = [...tlvSoldiers, ...haifaSoldiers, ...otherSoldiers];
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     let sameCityPairs = 0;
@@ -258,7 +258,7 @@ describe("generateSchedule", () => {
       ),
     ];
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     for (const day of days) {
@@ -275,74 +275,77 @@ describe("generateSchedule", () => {
     }
   });
 
-  it("does not assign a soldier more than maxConsecutiveDays in a row", () => {
+  it("does not assign a soldier beyond hard max (avgDaysArmy + 5)", () => {
     const season = buildSeason({
-      maxConsecutiveDays: 3,
+      avgDaysArmy: 5,
       dailyHeadcount: 3,
       startDate: new Date("2026-03-01T00:00:00.000Z"),
       endDate: new Date("2026-03-14T00:00:00.000Z"),
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     for (const soldier of soldiers) {
       const blocks = getBlockLengths(assignments, soldier.id);
       for (const blockLen of blocks) {
-        expect(blockLen).toBeLessThanOrEqual(3);
+        expect(blockLen).toBeLessThanOrEqual(10);
       }
     }
   });
 
-  it("creates blocks of at least minConsecutiveDays for most soldiers", () => {
+  it("creates blocks close to avgDaysArmy target for most soldiers", () => {
     const season = buildSeason({
-      minConsecutiveDays: 4,
+      avgDaysArmy: 5,
       dailyHeadcount: 3,
       startDate: new Date("2026-03-01T00:00:00.000Z"),
       endDate: new Date("2026-03-28T00:00:00.000Z"),
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     let totalBlocks = 0;
-    let blocksAtMin = 0;
+    let blocksNearTarget = 0;
     for (const soldier of soldiers) {
       const blocks = getBlockLengths(assignments, soldier.id);
       totalBlocks += blocks.length;
-      blocksAtMin += blocks.filter((b) => b >= 4).length;
+      blocksNearTarget += blocks.filter((b) => b >= 2 && b <= 8).length;
     }
-    expect(blocksAtMin / totalBlocks).toBeGreaterThan(0.6);
+    expect(blocksNearTarget / totalBlocks).toBeGreaterThan(0.5);
   });
 
-  it("prefers soldiers with adjacent assignments in fillUnderfilledDays", () => {
+  it("respects admin avgDaysArmy even when below default minimum", () => {
     const season = buildSeason({
-      minConsecutiveDays: 3,
-      dailyHeadcount: 2,
+      avgDaysArmy: 3,
+      dailyHeadcount: 4,
       startDate: new Date("2026-03-01T00:00:00.000Z"),
-      endDate: new Date("2026-03-14T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
     });
-    const soldiers = Array.from({ length: 8 }, () => buildSoldier());
+    const soldiers = Array.from({ length: 12 }, (_, i) =>
+      buildSoldier({ id: `s${i}` }),
+    );
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     for (const soldier of soldiers) {
       const blocks = getBlockLengths(assignments, soldier.id);
-      const isolatedStints = blocks.filter((b) => b < 3);
-      expect(isolatedStints.length).toBeLessThanOrEqual(1);
+      for (const blockLen of blocks) {
+        expect(blockLen, `${soldier.id} has block of ${blockLen}`).toBeGreaterThanOrEqual(2);
+      }
     }
   });
 
-  it("still meets headcount even when minConsecutiveDays cannot be satisfied", () => {
+  it("still meets headcount even when avgDaysArmy target cannot be fully satisfied", () => {
     const season = buildSeason({
-      minConsecutiveDays: 5,
+      avgDaysArmy: 5,
       dailyHeadcount: 3,
       startDate: new Date("2026-03-01T00:00:00.000Z"),
       endDate: new Date("2026-03-14T00:00:00.000Z"),
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     for (const day of days) {
@@ -354,22 +357,21 @@ describe("generateSchedule", () => {
     }
   });
 
-  it("respects both minConsecutiveDays and maxConsecutiveDays together", () => {
+  it("creates blocks within soft flex range of avgDaysArmy", () => {
     const season = buildSeason({
-      minConsecutiveDays: 4,
-      maxConsecutiveDays: 6,
+      avgDaysArmy: 5,
       dailyHeadcount: 3,
       startDate: new Date("2026-03-01T00:00:00.000Z"),
       endDate: new Date("2026-03-28T00:00:00.000Z"),
     });
     const soldiers = Array.from({ length: 10 }, () => buildSoldier());
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     for (const soldier of soldiers) {
       const blocks = getBlockLengths(assignments, soldier.id);
       for (const blockLen of blocks) {
-        expect(blockLen).toBeLessThanOrEqual(6);
+        expect(blockLen).toBeLessThanOrEqual(10);
       }
     }
 
@@ -381,6 +383,157 @@ describe("generateSchedule", () => {
       );
       expect(onBase.length).toBe(3);
     }
+  });
+
+  it("never creates blocks shorter than 4 days", () => {
+    const season = buildSeason({
+      avgDaysArmy: 7,
+      dailyHeadcount: 5,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 15 }, (_, i) =>
+      buildSoldier({ id: `s${i}` }),
+    );
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
+
+    for (const soldier of soldiers) {
+      const blocks = getBlockLengths(assignments, soldier.id);
+      const shortBlocks = blocks.filter((b) => b < 4);
+      expect(shortBlocks, `${soldier.id} has blocks: ${JSON.stringify(blocks)}`).toHaveLength(0);
+    }
+  });
+
+  it("keeps army day variance between soldiers within 5 days", () => {
+    const season = buildSeason({
+      dailyHeadcount: 5,
+      avgDaysArmy: 7,
+      avgDaysHome: 7,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 15 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
+
+    const daysPerSoldier = new Map<string, number>();
+    for (const a of assignments) {
+      if (a.isOnBase) {
+        daysPerSoldier.set(
+          a.soldierProfileId,
+          (daysPerSoldier.get(a.soldierProfileId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const counts = [...daysPerSoldier.values()];
+    const maxDays = Math.max(...counts);
+    const minDays = Math.min(...counts);
+    expect(maxDays - minDays).toBeLessThanOrEqual(5);
+  });
+
+  it("keeps variance within 7 days even with constraints", () => {
+    const soldiers = Array.from({ length: 15 }, () => buildSoldier());
+    const constraints: { soldierProfileId: string; date: Date }[] = [];
+    const seasonStart = new Date("2026-03-01T00:00:00.000Z");
+    for (const s of soldiers.slice(0, 7)) {
+      for (let d = 0; d < 42; d += 3) {
+        const date = new Date(seasonStart);
+        date.setUTCDate(date.getUTCDate() + d);
+        constraints.push({ soldierProfileId: s.id, date });
+      }
+    }
+
+    const season = buildSeason({
+      dailyHeadcount: 5,
+      avgDaysArmy: 7,
+      avgDaysHome: 7,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+
+    const assignments = generateSchedule({ season, soldiers, constraints, seed: 42 });
+
+    const daysPerSoldier = new Map<string, number>();
+    for (const a of assignments) {
+      if (a.isOnBase) {
+        daysPerSoldier.set(
+          a.soldierProfileId,
+          (daysPerSoldier.get(a.soldierProfileId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const counts = [...daysPerSoldier.values()];
+    const maxDays = Math.max(...counts);
+    const minDays = Math.min(...counts);
+    expect(maxDays - minDays).toBeLessThanOrEqual(7);
+  });
+
+  it("rebalancing preserves headcount on every day", () => {
+    const season = buildSeason({
+      dailyHeadcount: 5,
+      avgDaysArmy: 7,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 15 }, () => buildSoldier());
+
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
+
+    const days = eachDayInRange(season.startDate, season.endDate);
+    for (const day of days) {
+      const dateStr = dateToString(day);
+      const onBase = assignments.filter(
+        (a) => dateToString(a.date) === dateStr && a.isOnBase,
+      );
+      expect(onBase.length).toBe(5);
+    }
+  });
+
+  it("produces different schedules with different seeds", () => {
+    const season = buildSeason({
+      dailyHeadcount: 5,
+      avgDaysArmy: 7,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 15 }, () => buildSoldier());
+
+    const a1 = generateSchedule({ season, soldiers, constraints: [], seed: 1 });
+    const a2 = generateSchedule({ season, soldiers, constraints: [], seed: 2 });
+
+    const fingerprint = (assignments: typeof a1) =>
+      assignments
+        .filter((a) => a.isOnBase)
+        .map((a) => `${a.soldierProfileId}:${dateToString(a.date)}`)
+        .sort()
+        .join("|");
+
+    expect(fingerprint(a1)).not.toBe(fingerprint(a2));
+  });
+
+  it("produces the same schedule with the same seed", () => {
+    const season = buildSeason({
+      dailyHeadcount: 5,
+      avgDaysArmy: 7,
+      startDate: new Date("2026-03-01T00:00:00.000Z"),
+      endDate: new Date("2026-04-11T00:00:00.000Z"),
+    });
+    const soldiers = Array.from({ length: 15 }, () => buildSoldier());
+
+    const a1 = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
+    const a2 = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
+
+    const fingerprint = (assignments: typeof a1) =>
+      assignments
+        .filter((a) => a.isOnBase)
+        .map((a) => `${a.soldierProfileId}:${dateToString(a.date)}`)
+        .sort()
+        .join("|");
+
+    expect(fingerprint(a1)).toBe(fingerprint(a2));
   });
 
   it("respects role minimums when specified", () => {
@@ -396,7 +549,7 @@ describe("generateSchedule", () => {
       ...Array.from({ length: 8 }, () => buildSoldier()),
     ];
 
-    const assignments = generateSchedule({ season, soldiers, constraints: [] });
+    const assignments = generateSchedule({ season, soldiers, constraints: [], seed: 42 });
 
     const days = eachDayInRange(season.startDate, season.endDate);
     for (const day of days) {

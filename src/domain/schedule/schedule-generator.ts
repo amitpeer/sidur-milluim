@@ -3,6 +3,9 @@ import type { Season } from "@/domain/season/season.types";
 import type { SeasonSoldier } from "@/domain/soldier/soldier.types";
 import type { ScheduleAssignment } from "./schedule.types";
 import { eachDayInRange, dateToString } from "@/lib/date-utils";
+import { createSeededRandom } from "@/lib/seeded-random";
+import { refineSchedule } from "./schedule-refiner";
+
 
 interface GenerateInput {
   readonly season: Season;
@@ -13,16 +16,23 @@ interface GenerateInput {
   }[];
   readonly fromDate?: Date;
   readonly existingAssignments?: readonly ScheduleAssignment[];
+  readonly seed?: number;
 }
 
-const NEAR_BLOCK_MIN = 5;
-const NEAR_BLOCK_MAX = 7;
-const FAR_BLOCK_MIN = 7;
-const FAR_BLOCK_MAX = 10;
+const DEFAULT_AVG_ARMY = 7;
+const DEFAULT_AVG_HOME = 7;
+const HARD_MAX_BUFFER = 5;
+const HARD_MIN = 4;
 const CITY_COHESION_BONUS = 3;
 
+function effectiveMinBlock(avgDaysArmy: number | null): number {
+  const target = avgDaysArmy ?? DEFAULT_AVG_ARMY;
+  return Math.min(HARD_MIN, target);
+}
+
 export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
-  const { season, soldiers, constraints, fromDate, existingAssignments } = input;
+  const { season, soldiers, constraints, fromDate, existingAssignments, seed } = input;
+  const rng = createSeededRandom(seed ?? Date.now());
 
   const startDate = fromDate ?? season.startDate;
   const days = eachDayInRange(startDate, season.endDate);
@@ -84,87 +94,95 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
   }
 
   const headcount = season.dailyHeadcount;
-  const totalOperationalDays = operationalDays.length;
-  const soldierDaysTarget = totalOperationalDays > 0
-    ? Math.round((totalOperationalDays * headcount) / soldiers.length)
-    : 0;
+  const targetBlock = season.avgDaysArmy ?? DEFAULT_AVG_ARMY;
+  const targetGap = season.avgDaysHome ?? DEFAULT_AVG_HOME;
 
-  const sorted = sortByDifficulty(soldiers, constraints);
+  for (let dayIdx = 0; dayIdx < operationalDays.length; dayIdx++) {
+    const day = operationalDays[dayIdx];
+    const dateStr = dateToString(day);
+    const slots = daySlots.get(dateStr)!;
 
-  for (const soldier of sorted) {
-    const isFar = soldier.isFarAway;
-    const extra = isFar ? (season.farAwayExtraDays ?? 0) : 0;
-    const baseMin = season.minConsecutiveDays ?? (isFar ? FAR_BLOCK_MIN : NEAR_BLOCK_MIN);
-    const baseMax = season.maxConsecutiveDays ?? (isFar ? FAR_BLOCK_MAX : NEAR_BLOCK_MAX);
-    const blockMin = baseMin + extra;
-    const blockMax = baseMax + extra;
-    const targetDays = soldierDaysTarget;
+    while (slots.size < headcount) {
+      let bestSoldier: SeasonSoldier | null = null;
+      let bestScore = -Infinity;
 
-    let assigned = soldierDays.get(soldier.id) ?? 0;
+      for (const soldier of soldiers) {
+        if (slots.has(soldier.id)) continue;
+        if (isConstrained(soldier.id, dateStr, constraintSet)) continue;
 
-    while (assigned < targetDays) {
-      const blockStart = findBestBlockStart(
-        soldier.id,
-        operationalDays,
-        daySlots,
-        constraintSet,
-        headcount,
-        blockMin,
-        season.roleMinimums,
-        soldier.roles,
-        soldiers,
-        season.cityGroupingEnabled ? soldier.city : null,
-        blockMax,
-      );
+        const extra = soldier.isFarAway ? (season.farAwayExtraDays ?? 0) : 0;
+        const soldierTarget = targetBlock + extra;
+        const hardMax = soldierTarget + HARD_MAX_BUFFER;
 
-      if (blockStart === -1) break;
+        if (wouldExceedMaxConsecutive(soldier.id, dateStr, daySlots, operationalDays, hardMax)) continue;
 
-      const blockLen = calculateBlockLength(
-        blockStart,
-        operationalDays,
-        soldier.id,
-        constraintSet,
-        daySlots,
-        headcount,
-        blockMin,
-        blockMax,
-      );
+        const score = scoreSoldierForDay({
+          soldierId: soldier.id,
+          dayIdx,
+          days: operationalDays,
+          daySlots,
+          soldierDays,
+          targetBlock: soldierTarget,
+          targetGap,
+          roleMinimums: season.roleMinimums,
+          soldierRoles: soldier.roles,
+          allSoldiers: soldiers,
+          cityGroupingEnabled: season.cityGroupingEnabled,
+          soldierCity: season.cityGroupingEnabled ? soldier.city : null,
+        });
 
-      for (let i = blockStart; i < blockStart + blockLen && i < operationalDays.length; i++) {
-        const dateStr = dateToString(operationalDays[i]);
-        const slots = daySlots.get(dateStr)!;
-
-        if (slots.size < headcount && !isConstrained(soldier.id, dateStr, constraintSet)) {
-          slots.add(soldier.id);
-          assignments.push({
-            soldierProfileId: soldier.id,
-            date: operationalDays[i],
-            isOnBase: true,
-            isUnavailable: false,
-            absentReason: null,
-            replacedById: null,
-            manualOverride: false,
-          });
-          assigned++;
+        if (score > bestScore) {
+          bestScore = score;
+          bestSoldier = soldier;
         }
       }
 
-      soldierDays.set(soldier.id, assigned);
-      if (assigned >= targetDays) break;
+      if (!bestSoldier) break;
+
+      addSoldierToDay(bestSoldier.id, day, daySlots, soldierDays, assignments);
     }
   }
 
-  fillUnderfilledDays(
+  fixRoleCoverage(
     operationalDays,
     daySlots,
-    headcount,
+    season.roleMinimums,
     soldiers,
     constraintSet,
     soldierDays,
     assignments,
-    season.cityGroupingEnabled,
-    season.maxConsecutiveDays,
-    season.minConsecutiveDays,
+    season.avgDaysArmy,
+  );
+
+  mergeShortBlocks(
+    operationalDays,
+    daySlots,
+    soldiers,
+    constraintSet,
+    soldierDays,
+    assignments,
+    season.avgDaysArmy,
+  );
+
+  rebalanceDays(
+    operationalDays,
+    daySlots,
+    soldiers,
+    constraintSet,
+    soldierDays,
+    assignments,
+    season.avgDaysArmy,
+    season.roleMinimums,
+  );
+
+  mergeShortBlocks(
+    operationalDays,
+    daySlots,
+    soldiers,
+    constraintSet,
+    soldierDays,
+    assignments,
+    season.avgDaysArmy,
   );
 
   fixRoleCoverage(
@@ -175,10 +193,112 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
     constraintSet,
     soldierDays,
     assignments,
-    season.maxConsecutiveDays,
+    season.avgDaysArmy,
   );
 
-  return assignments;
+  return refineSchedule({
+    assignments,
+    season,
+    soldiers,
+    constraints,
+    seed: (rng.next() * 0xFFFFFFFF) | 0,
+  });
+}
+
+interface ScoreInput {
+  readonly soldierId: string;
+  readonly dayIdx: number;
+  readonly days: Date[];
+  readonly daySlots: Map<string, Set<string>>;
+  readonly soldierDays: Map<string, number>;
+  readonly targetBlock: number;
+  readonly targetGap: number;
+  readonly roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>;
+  readonly soldierRoles: readonly SoldierRole[];
+  readonly allSoldiers: readonly SeasonSoldier[];
+  readonly cityGroupingEnabled: boolean;
+  readonly soldierCity: string | null;
+}
+
+function scoreSoldierForDay(input: ScoreInput): number {
+  const {
+    soldierId, dayIdx, days, daySlots, soldierDays,
+    targetBlock, targetGap,
+    roleMinimums, soldierRoles, allSoldiers,
+    cityGroupingEnabled, soldierCity,
+  } = input;
+
+  const minBlock = Math.min(HARD_MIN, targetBlock);
+  let score = 0;
+
+  const prevAssigned = dayIdx > 0 &&
+    daySlots.get(dateToString(days[dayIdx - 1]))?.has(soldierId);
+
+  if (prevAssigned) {
+    const blockLen = countBackwardBlock(soldierId, dayIdx - 1, days, daySlots);
+    if (blockLen < minBlock) {
+      score += 30;
+    } else if (blockLen < targetBlock) {
+      score += 20;
+    } else {
+      score -= (blockLen - targetBlock + 1) * 5;
+    }
+  } else {
+    const gap = countGap(soldierId, dayIdx, days, daySlots);
+    if (gap === -1 || gap >= targetGap) {
+      score += 10;
+    } else {
+      score += 10 - (targetGap - gap) * 3;
+    }
+  }
+
+  const totalDays = soldierDays.get(soldierId) ?? 0;
+  score -= totalDays;
+
+  const dateStr = dateToString(days[dayIdx]);
+  for (const [role, min] of Object.entries(roleMinimums) as [SoldierRole, number][]) {
+    if (soldierRoles.includes(role)) {
+      const currentCount = countRoleOnDay(dateStr, role, daySlots, allSoldiers);
+      if (currentCount < min) {
+        score += 30;
+      }
+    }
+  }
+
+  if (cityGroupingEnabled && soldierCity) {
+    const cityCount = countCityOnDay(dateStr, soldierCity, daySlots, allSoldiers);
+    score += cityCount * CITY_COHESION_BONUS;
+  }
+
+  return score;
+}
+
+function countBackwardBlock(
+  soldierId: string,
+  fromIdx: number,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+): number {
+  let count = 0;
+  for (let i = fromIdx; i >= 0; i--) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) count++;
+    else break;
+  }
+  return count;
+}
+
+function countGap(
+  soldierId: string,
+  dayIdx: number,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+): number {
+  for (let i = dayIdx - 1; i >= 0; i--) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) {
+      return dayIdx - 1 - i;
+    }
+  }
+  return -1;
 }
 
 function buildConstraintSet(
@@ -199,189 +319,43 @@ function isConstrained(
   return constraintSet.has(`${soldierId}:${dateStr}`);
 }
 
-function sortByDifficulty(
-  soldiers: readonly SeasonSoldier[],
-  constraints: readonly { soldierProfileId: string; date: Date }[],
-): SeasonSoldier[] {
-  const constraintCount = new Map<string, number>();
-  for (const c of constraints) {
-    constraintCount.set(
-      c.soldierProfileId,
-      (constraintCount.get(c.soldierProfileId) ?? 0) + 1,
-    );
-  }
-
-  return [...soldiers].sort((a, b) => {
-    const aCount = constraintCount.get(a.id) ?? 0;
-    const bCount = constraintCount.get(b.id) ?? 0;
-    return bCount - aCount;
+function addSoldierToDay(
+  soldierId: string,
+  day: Date,
+  daySlots: Map<string, Set<string>>,
+  soldierDays: Map<string, number>,
+  assignments: ScheduleAssignment[],
+): void {
+  const dateStr = dateToString(day);
+  daySlots.get(dateStr)!.add(soldierId);
+  soldierDays.set(soldierId, (soldierDays.get(soldierId) ?? 0) + 1);
+  assignments.push({
+    soldierProfileId: soldierId,
+    date: day,
+    isOnBase: true,
+    isUnavailable: false,
+    absentReason: null,
+    replacedById: null,
+    manualOverride: false,
   });
 }
 
-function findBestBlockStart(
+function countCurrentBlock(
   soldierId: string,
+  dayIdx: number,
   days: Date[],
   daySlots: Map<string, Set<string>>,
-  constraintSet: Set<string>,
-  headcount: number,
-  blockMin: number,
-  roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
-  soldierRoles: readonly SoldierRole[],
-  allSoldiers: readonly SeasonSoldier[],
-  soldierCity: string | null,
-  blockMax: number,
 ): number {
-  let bestStart = -1;
-  let bestScore = -Infinity;
-
-  for (let i = 0; i <= days.length - blockMin; i++) {
-    const dateStr = dateToString(days[i]);
-    const slots = daySlots.get(dateStr)!;
-
-    if (slots.has(soldierId)) continue;
-    if (isConstrained(soldierId, dateStr, constraintSet)) continue;
-    if (slots.size >= headcount) continue;
-
-    if (wouldExceedMaxConsecutive(soldierId, dateStr, daySlots, days, blockMax)) continue;
-
-    let consecutiveFree = 0;
-    for (let j = i; j < days.length; j++) {
-      const ds = dateToString(days[j]);
-      if (
-        isConstrained(soldierId, ds, constraintSet) ||
-        daySlots.get(ds)!.has(soldierId)
-      ) {
-        break;
-      }
-      consecutiveFree++;
-    }
-
-    if (consecutiveFree < blockMin) continue;
-
-    let score = 0;
-    for (let j = i; j < Math.min(i + blockMin, days.length); j++) {
-      const ds = dateToString(days[j]);
-      const s = daySlots.get(ds)!;
-      score += headcount - s.size;
-
-      for (const [role, min] of Object.entries(roleMinimums) as [SoldierRole, number][]) {
-        if (soldierRoles.includes(role)) {
-          const currentRoleCount = countRoleOnDay(ds, role, daySlots, allSoldiers);
-          if (currentRoleCount < min) {
-            score += 10;
-          }
-        }
-      }
-
-      if (soldierCity) {
-        const cityCount = countCityOnDay(ds, soldierCity, daySlots, allSoldiers);
-        score += cityCount * CITY_COHESION_BONUS;
-      }
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestStart = i;
-    }
+  let count = 1;
+  for (let i = dayIdx - 1; i >= 0; i--) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) count++;
+    else break;
   }
-
-  return bestStart;
-}
-
-function calculateBlockLength(
-  startIdx: number,
-  days: Date[],
-  soldierId: string,
-  constraintSet: Set<string>,
-  daySlots: Map<string, Set<string>>,
-  headcount: number,
-  blockMin: number,
-  blockMax: number,
-): number {
-  let len = 0;
-  for (let i = startIdx; i < days.length && len < blockMax; i++) {
-    const dateStr = dateToString(days[i]);
-    if (
-      isConstrained(soldierId, dateStr, constraintSet) ||
-      daySlots.get(dateStr)!.has(soldierId)
-    ) {
-      break;
-    }
-    if (daySlots.get(dateStr)!.size >= headcount && len >= blockMin) {
-      break;
-    }
-    len++;
+  for (let i = dayIdx + 1; i < days.length; i++) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) count++;
+    else break;
   }
-  return Math.max(len, 1);
-}
-
-function fillUnderfilledDays(
-  days: Date[],
-  daySlots: Map<string, Set<string>>,
-  headcount: number,
-  soldiers: readonly SeasonSoldier[],
-  constraintSet: Set<string>,
-  soldierDays: Map<string, number>,
-  assignments: ScheduleAssignment[],
-  cityGroupingEnabled: boolean,
-  maxConsecutiveDays: number | null,
-  minConsecutiveDays: number | null,
-): void {
-  for (const day of days) {
-    const dateStr = dateToString(day);
-    const slots = daySlots.get(dateStr)!;
-
-    while (slots.size < headcount) {
-      const available = soldiers.filter(
-        (s) =>
-          !slots.has(s.id) &&
-          !isConstrained(s.id, dateStr, constraintSet) &&
-          !wouldExceedMaxConsecutive(s.id, dateStr, daySlots, days, maxConsecutiveDays),
-      );
-
-      if (available.length === 0) break;
-
-      available.sort((a, b) => {
-        if (minConsecutiveDays !== null) {
-          const aAdj = hasAdjacentDay(a.id, dateStr, daySlots, days);
-          const bAdj = hasAdjacentDay(b.id, dateStr, daySlots, days);
-          if (aAdj !== bAdj) return aAdj ? -1 : 1;
-        }
-
-        const daysDiff =
-          (soldierDays.get(a.id) ?? 0) - (soldierDays.get(b.id) ?? 0);
-        if (daysDiff !== 0) return daysDiff;
-
-        if (cityGroupingEnabled) {
-          const aCityBonus = a.city
-            ? countCityOnDay(dateStr, a.city, daySlots, soldiers)
-            : 0;
-          const bCityBonus = b.city
-            ? countCityOnDay(dateStr, b.city, daySlots, soldiers)
-            : 0;
-          return bCityBonus - aCityBonus;
-        }
-
-        return 0;
-      });
-
-      const soldier = available[0];
-      slots.add(soldier.id);
-      soldierDays.set(
-        soldier.id,
-        (soldierDays.get(soldier.id) ?? 0) + 1,
-      );
-      assignments.push({
-        soldierProfileId: soldier.id,
-        date: day,
-        isOnBase: true,
-        isUnavailable: false,
-        absentReason: null,
-        replacedById: null,
-        manualOverride: false,
-      });
-    }
-  }
+  return count;
 }
 
 function fixRoleCoverage(
@@ -392,9 +366,11 @@ function fixRoleCoverage(
   constraintSet: Set<string>,
   soldierDays: Map<string, number>,
   assignments: ScheduleAssignment[],
-  maxConsecutiveDays: number | null,
+  avgDaysArmy: number | null,
 ): void {
   if (Object.keys(roleMinimums).length === 0) return;
+
+  const hardMax = avgDaysArmy != null ? avgDaysArmy + 5 : null;
 
   for (const day of days) {
     const dateStr = dateToString(day);
@@ -411,7 +387,7 @@ function fixRoleCoverage(
             s.roles.includes(role) &&
             !slots.has(s.id) &&
             !isConstrained(s.id, dateStr, constraintSet) &&
-            !wouldExceedMaxConsecutive(s.id, dateStr, daySlots, days, maxConsecutiveDays),
+            !wouldExceedMaxConsecutive(s.id, dateStr, daySlots, days, hardMax),
         );
 
         if (!roleHolder) continue;
@@ -449,27 +425,6 @@ function fixRoleCoverage(
       }
     }
   }
-}
-
-function hasAdjacentDay(
-  soldierId: string,
-  dateStr: string,
-  daySlots: Map<string, Set<string>>,
-  days: Date[],
-): boolean {
-  const dayIndex = days.findIndex((d) => dateToString(d) === dateStr);
-  if (dayIndex === -1) return false;
-
-  if (dayIndex > 0) {
-    const prev = dateToString(days[dayIndex - 1]);
-    if (daySlots.get(prev)?.has(soldierId)) return true;
-  }
-  if (dayIndex < days.length - 1) {
-    const next = dateToString(days[dayIndex + 1]);
-    if (daySlots.get(next)?.has(soldierId)) return true;
-  }
-
-  return false;
 }
 
 function countCityOnDay(
@@ -554,6 +509,312 @@ function wouldExceedMaxConsecutive(
   }
 
   return streak > maxConsecutive;
+}
+
+function mergeShortBlocks(
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  soldiers: readonly SeasonSoldier[],
+  constraintSet: Set<string>,
+  soldierDays: Map<string, number>,
+  assignments: ScheduleAssignment[],
+  avgDaysArmy: number | null,
+): void {
+  const hardMax = avgDaysArmy != null ? avgDaysArmy + 5 : null;
+  const minBlock = effectiveMinBlock(avgDaysArmy);
+  const MAX_PASSES = 3;
+
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    let swapped = false;
+
+    for (const soldier of soldiers) {
+      const blocks = findSoldierBlocks(soldier.id, days, daySlots);
+
+      for (const block of blocks) {
+        if (block.length >= minBlock) continue;
+
+        const extended = tryExtendBySwap(
+          soldier.id, block, days, daySlots, soldiers,
+          constraintSet, soldierDays, assignments, hardMax, minBlock,
+        );
+        if (extended) swapped = true;
+      }
+    }
+
+    if (!swapped) break;
+  }
+}
+
+function findSoldierBlocks(
+  soldierId: string,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+): number[][] {
+  const blocks: number[][] = [];
+  let current: number[] = [];
+
+  for (let i = 0; i < days.length; i++) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) {
+      current.push(i);
+    } else {
+      if (current.length > 0) {
+        blocks.push(current);
+        current = [];
+      }
+    }
+  }
+  if (current.length > 0) blocks.push(current);
+  return blocks;
+}
+
+function tryExtendBySwap(
+  soldierId: string,
+  blockIndices: number[],
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  soldiers: readonly SeasonSoldier[],
+  constraintSet: Set<string>,
+  soldierDays: Map<string, number>,
+  assignments: ScheduleAssignment[],
+  hardMax: number | null,
+  minBlock: number,
+): boolean {
+  const needed = minBlock - blockIndices.length;
+  let extended = false;
+
+  const directions = [1, -1];
+  let remaining = needed;
+
+  for (const dir of directions) {
+    if (remaining <= 0) break;
+
+    const edge = dir === 1
+      ? blockIndices[blockIndices.length - 1]
+      : blockIndices[0];
+
+    for (let step = 1; step <= remaining; step++) {
+      const targetIdx = edge + dir * step;
+      if (targetIdx < 0 || targetIdx >= days.length) break;
+
+      const ds = dateToString(days[targetIdx]);
+      if (isConstrained(soldierId, ds, constraintSet)) break;
+      if (wouldExceedMaxConsecutive(soldierId, ds, daySlots, days, hardMax)) break;
+
+      const slots = daySlots.get(ds)!;
+      if (slots.has(soldierId)) break;
+
+      const victim = findSwapCandidate(soldierId, targetIdx, days, daySlots, soldiers, constraintSet, minBlock);
+      if (!victim) break;
+
+      slots.delete(victim);
+      removeAssignment(assignments, victim, ds);
+      soldierDays.set(victim, (soldierDays.get(victim) ?? 0) - 1);
+
+      addSoldierToDay(soldierId, days[targetIdx], daySlots, soldierDays, assignments);
+      extended = true;
+      remaining--;
+    }
+  }
+
+  return extended;
+}
+
+function findSwapCandidate(
+  soldierId: string,
+  dayIdx: number,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  soldiers: readonly SeasonSoldier[],
+  constraintSet: Set<string>,
+  minBlock: number,
+): string | null {
+  const ds = dateToString(days[dayIdx]);
+  const slots = daySlots.get(ds)!;
+
+  let bestCandidate: string | null = null;
+  let bestBlock = Infinity;
+
+  for (const candidateId of slots) {
+    if (candidateId === soldierId) continue;
+
+    const blockLen = countCurrentBlock(candidateId, dayIdx, days, daySlots);
+
+    if (blockLen <= minBlock) continue;
+
+    const isEdge =
+      dayIdx === 0 ||
+      !daySlots.get(dateToString(days[dayIdx - 1]))?.has(candidateId) ||
+      dayIdx === days.length - 1 ||
+      !daySlots.get(dateToString(days[dayIdx + 1]))?.has(candidateId);
+    if (!isEdge) continue;
+
+    if (blockLen < bestBlock) {
+      bestBlock = blockLen;
+      bestCandidate = candidateId;
+    }
+  }
+
+  return bestCandidate;
+}
+
+const MAX_VARIANCE = 5;
+
+function rebalanceDays(
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  soldiers: readonly SeasonSoldier[],
+  constraintSet: Set<string>,
+  soldierDays: Map<string, number>,
+  assignments: ScheduleAssignment[],
+  avgDaysArmy: number | null,
+  roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
+): void {
+  const hardMax = avgDaysArmy != null ? avgDaysArmy + HARD_MAX_BUFFER : null;
+  const soldierRolesMap = new Map(soldiers.map((s) => [s.id, s.roles]));
+  const MAX_ITERATIONS = soldiers.length * 20;
+
+  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    const sorted = [...soldiers].sort(
+      (a, b) => (soldierDays.get(b.id) ?? 0) - (soldierDays.get(a.id) ?? 0),
+    );
+    const maxDays = soldierDays.get(sorted[0].id) ?? 0;
+    const minDaysVal = soldierDays.get(sorted[sorted.length - 1].id) ?? 0;
+
+    if (maxDays - minDaysVal <= MAX_VARIANCE) break;
+
+    const swapped = tryRebalanceSwap(
+      sorted, days, daySlots, constraintSet, soldierDays,
+      assignments, hardMax, soldierRolesMap, roleMinimums,
+    );
+    if (!swapped) break;
+  }
+}
+
+function tryRebalanceSwap(
+  sortedSoldiers: SeasonSoldier[],
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  constraintSet: Set<string>,
+  soldierDays: Map<string, number>,
+  assignments: ScheduleAssignment[],
+  hardMax: number | null,
+  soldierRolesMap: Map<string, readonly SoldierRole[]>,
+  roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
+): boolean {
+  const minDaysVal = soldierDays.get(sortedSoldiers[sortedSoldiers.length - 1].id) ?? 0;
+
+  for (const overSoldier of sortedSoldiers) {
+    const overDays = soldierDays.get(overSoldier.id) ?? 0;
+    if (overDays - minDaysVal <= MAX_VARIANCE) break;
+
+    const assignedDayIndices = getAssignedDayIndices(overSoldier.id, days, daySlots);
+    const edges = getBlockEdgeIndices(overSoldier.id, days, daySlots);
+    const interior = assignedDayIndices.filter((i) => !edges.includes(i));
+    const candidates = [...edges, ...interior];
+
+    for (const dayIdx of candidates) {
+      const ds = dateToString(days[dayIdx]);
+
+      if (wouldBreakRoles(overSoldier.id, ds, daySlots, soldierRolesMap, sortedSoldiers, roleMinimums)) {
+        continue;
+      }
+
+      const underSoldier = findUnderSoldier(
+        sortedSoldiers, overSoldier.id, dayIdx, days, daySlots,
+        constraintSet, soldierDays, hardMax, overDays,
+      );
+      if (!underSoldier) continue;
+
+      daySlots.get(ds)!.delete(overSoldier.id);
+      removeAssignment(assignments, overSoldier.id, ds);
+      soldierDays.set(overSoldier.id, overDays - 1);
+
+      addSoldierToDay(underSoldier, days[dayIdx], daySlots, soldierDays, assignments);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getAssignedDayIndices(
+  soldierId: string,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+): number[] {
+  const indices: number[] = [];
+  for (let i = 0; i < days.length; i++) {
+    if (daySlots.get(dateToString(days[i]))?.has(soldierId)) {
+      indices.push(i);
+    }
+  }
+  return indices;
+}
+
+function getBlockEdgeIndices(
+  soldierId: string,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+): number[] {
+  const blocks = findSoldierBlocks(soldierId, days, daySlots);
+  const edges: number[] = [];
+  for (const block of blocks) {
+    if (block.length > 1) {
+      edges.push(block[block.length - 1]);
+      edges.push(block[0]);
+    }
+  }
+  return edges;
+}
+
+function wouldBreakRoles(
+  soldierId: string,
+  dateStr: string,
+  daySlots: Map<string, Set<string>>,
+  soldierRolesMap: Map<string, readonly SoldierRole[]>,
+  soldiers: readonly SeasonSoldier[],
+  roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
+): boolean {
+  const roles = soldierRolesMap.get(soldierId);
+  if (!roles || roles.length === 0) return false;
+
+  for (const role of roles) {
+    const min = roleMinimums[role];
+    if (min == null || min <= 0) continue;
+
+    const count = countRoleOnDay(dateStr, role, daySlots, soldiers);
+    if (count <= min) return true;
+  }
+  return false;
+}
+
+function findUnderSoldier(
+  sortedSoldiers: SeasonSoldier[],
+  overSoldierId: string,
+  dayIdx: number,
+  days: Date[],
+  daySlots: Map<string, Set<string>>,
+  constraintSet: Set<string>,
+  soldierDays: Map<string, number>,
+  hardMax: number | null,
+  overDays: number,
+): string | null {
+  const ds = dateToString(days[dayIdx]);
+
+  for (let i = sortedSoldiers.length - 1; i >= 0; i--) {
+    const candidate = sortedSoldiers[i];
+    const candidateDays = soldierDays.get(candidate.id) ?? 0;
+    if (candidateDays >= overDays - 1) break;
+
+    if (candidate.id === overSoldierId) continue;
+    if (daySlots.get(ds)!.has(candidate.id)) continue;
+    if (isConstrained(candidate.id, ds, constraintSet)) continue;
+    if (wouldExceedMaxConsecutive(candidate.id, ds, daySlots, days, hardMax)) continue;
+
+    return candidate.id;
+  }
+
+  return null;
 }
 
 function removeAssignment(

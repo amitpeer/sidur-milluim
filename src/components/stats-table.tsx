@@ -23,7 +23,12 @@ const COLUMNS: readonly {
   { field: "courseDays", label: "קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
 ];
 
-export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] }) {
+interface StatsTableProps {
+  readonly stats: readonly SoldierStats[];
+  readonly versionDate?: Date | null;
+}
+
+export function StatsTable({ stats, versionDate }: StatsTableProps) {
   const [sortField, setSortField] = useState<SortField>("daysInArmy");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -56,7 +61,19 @@ export function StatsTable({ stats }: { readonly stats: readonly SoldierStats[] 
 
   return (
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h3 className="mb-3 text-sm font-medium">סטטיסטיקות ({stats.length})</h3>
+      <h3 className="mb-1 text-sm font-medium">סטטיסטיקות ({stats.length})</h3>
+      {versionDate && (
+        <p className="mb-3 text-xs text-zinc-400">
+          גרסה פעילה מתאריך{" "}
+          {new Date(versionDate).toLocaleString("he-IL", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
         <table className="w-full text-sm">
           <thead>

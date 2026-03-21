@@ -1,5 +1,14 @@
 import { prisma } from "@/server/db/client";
 import type { AbsentReason, ScheduleAssignment } from "@/domain/schedule/schedule.types";
+import { dateToString } from "@/lib/date-utils";
+
+export function deduplicateAssignments(assignments: ScheduleAssignment[]): ScheduleAssignment[] {
+  const seen = new Map<string, ScheduleAssignment>();
+  for (const a of assignments) {
+    seen.set(`${a.soldierProfileId}-${dateToString(a.date)}`, a);
+  }
+  return [...seen.values()];
+}
 
 export async function getActiveScheduleVersionId(seasonId: string) {
   return prisma.scheduleVersion.findFirst({
@@ -65,6 +74,8 @@ export async function createScheduleVersion(
       });
     }
 
+    const deduplicated = deduplicateAssignments(assignments);
+
     return tx.scheduleVersion.create({
       data: {
         seasonId,
@@ -73,7 +84,7 @@ export async function createScheduleVersion(
         regeneratedFromDate,
         assignments: {
           createMany: {
-            data: assignments.map((a) => ({
+            data: deduplicated.map((a) => ({
               soldierProfileId: a.soldierProfileId,
               date: a.date,
               isOnBase: a.isOnBase,

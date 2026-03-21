@@ -9,7 +9,7 @@ export async function createSeason(data: {
   roleMinimums?: Record<string, number>;
   constraintDeadline?: Date | null;
   cityGroupingEnabled?: boolean;
-  maxConsecutiveDays?: number | null;
+  avgDaysArmy?: number | null;
 }) {
   return prisma.season.create({
     data: {
@@ -21,7 +21,7 @@ export async function createSeason(data: {
       roleMinimums: data.roleMinimums ?? {},
       constraintDeadline: data.constraintDeadline ?? null,
       cityGroupingEnabled: data.cityGroupingEnabled ?? true,
-      maxConsecutiveDays: data.maxConsecutiveDays ?? null,
+      avgDaysArmy: data.avgDaysArmy ?? null,
     },
   });
 }
@@ -77,8 +77,8 @@ export async function getSeasonSettings(id: string) {
       roleMinimums: true,
       constraintDeadline: true,
       cityGroupingEnabled: true,
-      maxConsecutiveDays: true,
-      minConsecutiveDays: true,
+      avgDaysArmy: true,
+      avgDaysHome: true,
       farAwayExtraDays: true,
     },
   });
@@ -124,8 +124,8 @@ export async function updateSeason(
     roleMinimums?: Record<string, number>;
     constraintDeadline?: Date | null;
     cityGroupingEnabled?: boolean;
-    maxConsecutiveDays?: number | null;
-    minConsecutiveDays?: number | null;
+    avgDaysArmy?: number | null;
+    avgDaysHome?: number | null;
     farAwayExtraDays?: number | null;
     isActive?: boolean;
   },

@@ -99,7 +99,7 @@ describe("suggestReplacements", () => {
     expect(suggestions.map((s) => s.soldierId)).not.toContain("s2");
   });
 
-  it("excludes soldiers who would exceed maxConsecutiveDays", () => {
+  it("excludes soldiers who would exceed hard max (avgDaysArmy + 5)", () => {
     const soldiers = [
       buildSoldier({ id: "s1" }),
       buildSoldier({ id: "s2" }),
@@ -109,22 +109,27 @@ describe("suggestReplacements", () => {
       makeAssignment("s2", "2026-03-01"),
       makeAssignment("s2", "2026-03-02"),
       makeAssignment("s2", "2026-03-03"),
+      makeAssignment("s2", "2026-03-04"),
+      makeAssignment("s2", "2026-03-05"),
+      makeAssignment("s2", "2026-03-06"),
+      makeAssignment("s2", "2026-03-07"),
+      makeAssignment("s2", "2026-03-08"),
     ];
 
     const suggestions = suggestReplacements({
       unavailableSoldierId: "s1",
-      date: new Date("2026-03-04T00:00:00.000Z"),
+      date: new Date("2026-03-09T00:00:00.000Z"),
       soldiers,
       assignments,
       constraints: [],
-      maxConsecutiveDays: 3,
+      avgDaysArmy: 3,
     });
 
     expect(suggestions.map((s) => s.soldierId)).not.toContain("s2");
     expect(suggestions.map((s) => s.soldierId)).toContain("s3");
   });
 
-  it("does not filter by maxConsecutiveDays when not set", () => {
+  it("does not filter by hard max when avgDaysArmy is not set", () => {
     const soldiers = [
       buildSoldier({ id: "s1" }),
       buildSoldier({ id: "s2" }),
@@ -146,7 +151,7 @@ describe("suggestReplacements", () => {
     expect(suggestions.map((s) => s.soldierId)).toContain("s2");
   });
 
-  it("prefers soldiers with adjacent assignments when minConsecutiveDays is set", () => {
+  it("prefers soldiers with adjacent assignments when avgDaysArmy is set", () => {
     const soldiers = [
       buildSoldier({ id: "s1" }),
       buildSoldier({ id: "s2" }),
@@ -162,7 +167,7 @@ describe("suggestReplacements", () => {
       soldiers,
       assignments,
       constraints: [],
-      minConsecutiveDays: 3,
+      avgDaysArmy: 3,
     });
 
     expect(suggestions[0].soldierId).toBe("s2");

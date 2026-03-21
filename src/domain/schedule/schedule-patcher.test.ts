@@ -479,25 +479,27 @@ describe("patchSchedule", () => {
   });
 
   describe("season config enforcement", () => {
-    it("does not assign soldiers past maxConsecutiveDays when filling understaffed days", () => {
+    it("does not assign soldiers past hard max (avgDaysArmy + 5) when filling understaffed days", () => {
       const soldiers = [
         buildSoldier({ id: "s1" }),
         buildSoldier({ id: "s2" }),
       ];
       const season = buildSeason({
         startDate: new Date("2026-03-01T00:00:00.000Z"),
-        endDate: new Date("2026-03-08T00:00:00.000Z"),
+        endDate: new Date("2026-03-10T00:00:00.000Z"),
         dailyHeadcount: 1,
-        maxConsecutiveDays: 3,
+        avgDaysArmy: 2,
       });
       const assignments = [
-        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-05" }),
-        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-06" }),
-        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-07" }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-03", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-04", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-05", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-06", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-07", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-08", manualOverride: true }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-09", manualOverride: true }),
         buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-01" }),
         buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
-        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-03" }),
-        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-04" }),
       ];
 
       const result = patchSchedule({
@@ -507,12 +509,12 @@ describe("patchSchedule", () => {
         season,
       });
 
-      const day8Ids = onBaseSoldierIds(result.assignments, "2026-03-08");
-      expect(day8Ids).not.toContain("s1");
-      expect(day8Ids).toContain("s2");
+      const day10Ids = onBaseSoldierIds(result.assignments, "2026-03-10");
+      expect(day10Ids).not.toContain("s1");
+      expect(day10Ids).toContain("s2");
     });
 
-    it("does not swap in soldiers past maxConsecutiveDays when fixing role coverage", () => {
+    it("does not swap in soldiers past hard max (avgDaysArmy + 5) when fixing role coverage", () => {
       const soldiers = [
         buildSoldier({ id: "s1", roles: [] }),
         buildSoldier({ id: "s2", roles: ["driver"] }),
@@ -520,15 +522,21 @@ describe("patchSchedule", () => {
       ];
       const season = buildSeason({
         startDate: new Date("2026-03-01T00:00:00.000Z"),
-        endDate: new Date("2026-03-03T00:00:00.000Z"),
+        endDate: new Date("2026-03-10T00:00:00.000Z"),
         dailyHeadcount: 1,
-        maxConsecutiveDays: 1,
+        avgDaysArmy: 2,
         roleMinimums: { driver: 1 },
       });
       const assignments = [
         buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01" }),
         buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
-        buildAssignment({ soldierProfileId: "s3", dateStr: "2026-03-03" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-03" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-04" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-05" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-06" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-07" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-08" }),
+        buildAssignment({ soldierProfileId: "s3", dateStr: "2026-03-09" }),
       ];
 
       const result = patchSchedule({
@@ -543,7 +551,7 @@ describe("patchSchedule", () => {
       expect(day1Ids).toContain("s3");
     });
 
-    it("prefers soldiers with adjacent assignments when minConsecutiveDays is set", () => {
+    it("prefers soldiers with adjacent assignments when avgDaysArmy is set", () => {
       const soldiers = [
         buildSoldier({ id: "s1" }),
         buildSoldier({ id: "s2" }),
@@ -553,7 +561,7 @@ describe("patchSchedule", () => {
         startDate: new Date("2026-03-01T00:00:00.000Z"),
         endDate: new Date("2026-03-03T00:00:00.000Z"),
         dailyHeadcount: 1,
-        minConsecutiveDays: 3,
+        avgDaysArmy: 3,
       });
       const assignments = [
         buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01" }),

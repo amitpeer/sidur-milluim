@@ -95,8 +95,8 @@ const updateSeasonSchema = z.object({
   constraintDeadline: z.string().optional(),
   roleMinimums: z.string().optional(),
   cityGroupingEnabled: z.string().optional(),
-  maxConsecutiveDays: z.string().optional(),
-  minConsecutiveDays: z.string().optional(),
+  avgDaysArmy: z.string().optional(),
+  avgDaysHome: z.string().optional(),
   farAwayExtraDays: z.string().optional(),
 });
 
@@ -119,8 +119,8 @@ export async function updateSeasonAction(
     constraintDeadline: formData.get("constraintDeadline") || undefined,
     roleMinimums: formData.get("roleMinimums") || undefined,
     cityGroupingEnabled: formData.get("cityGroupingEnabled") || undefined,
-    maxConsecutiveDays: formData.get("maxConsecutiveDays") ?? undefined,
-    minConsecutiveDays: formData.get("minConsecutiveDays") ?? undefined,
+    avgDaysArmy: formData.get("avgDaysArmy") ?? undefined,
+    avgDaysHome: formData.get("avgDaysHome") ?? undefined,
     farAwayExtraDays: formData.get("farAwayExtraDays") ?? undefined,
   });
 
@@ -167,13 +167,13 @@ export async function updateSeasonAction(
   if (parsed.data.cityGroupingEnabled !== undefined) {
     data.cityGroupingEnabled = parsed.data.cityGroupingEnabled === "true";
   }
-  if (parsed.data.maxConsecutiveDays !== undefined) {
-    const raw = parsed.data.maxConsecutiveDays.trim();
-    data.maxConsecutiveDays = raw === "" ? null : parseInt(raw, 10);
+  if (parsed.data.avgDaysArmy !== undefined) {
+    const raw = parsed.data.avgDaysArmy.trim();
+    data.avgDaysArmy = raw === "" ? null : parseInt(raw, 10);
   }
-  if (parsed.data.minConsecutiveDays !== undefined) {
-    const raw = parsed.data.minConsecutiveDays.trim();
-    data.minConsecutiveDays = raw === "" ? null : parseInt(raw, 10);
+  if (parsed.data.avgDaysHome !== undefined) {
+    const raw = parsed.data.avgDaysHome.trim();
+    data.avgDaysHome = raw === "" ? null : parseInt(raw, 10);
   }
   if (parsed.data.farAwayExtraDays !== undefined) {
     const raw = parsed.data.farAwayExtraDays.trim();

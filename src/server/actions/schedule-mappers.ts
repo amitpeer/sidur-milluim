@@ -13,8 +13,8 @@ export interface SeasonRow {
   readonly constraintDeadline: Date | null;
   readonly isActive: boolean;
   readonly cityGroupingEnabled: boolean;
-  readonly maxConsecutiveDays: number | null;
-  readonly minConsecutiveDays: number | null;
+  readonly avgDaysArmy: number | null;
+  readonly avgDaysHome: number | null;
   readonly farAwayExtraDays: number | null;
 }
 
@@ -35,8 +35,8 @@ export function toDomainSeason(season: SeasonRow): Season {
     ...season,
     roleMinimums: (season.roleMinimums ?? {}) as Partial<Record<SoldierRole, number>>,
     cityGroupingEnabled: season.cityGroupingEnabled ?? true,
-    maxConsecutiveDays: season.maxConsecutiveDays ?? null,
-    minConsecutiveDays: season.minConsecutiveDays ?? null,
+    avgDaysArmy: season.avgDaysArmy ?? null,
+    avgDaysHome: season.avgDaysHome ?? null,
     farAwayExtraDays: season.farAwayExtraDays ?? null,
   };
 }

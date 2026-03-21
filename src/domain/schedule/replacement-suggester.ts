@@ -5,6 +5,7 @@ import { dateToString, addDays } from "@/lib/date-utils";
 
 const ADJACENCY_BONUS = 30;
 const CITY_COHESION_BONUS = 3;
+const HARD_MAX_BUFFER = 5;
 
 interface SuggestInput {
   readonly unavailableSoldierId: string;
@@ -16,8 +17,7 @@ interface SuggestInput {
     readonly date: Date;
   }[];
   readonly requiredRoles?: readonly SoldierRole[];
-  readonly maxConsecutiveDays?: number | null;
-  readonly minConsecutiveDays?: number | null;
+  readonly avgDaysArmy?: number | null;
   readonly cityGroupingEnabled?: boolean;
 }
 
@@ -38,8 +38,7 @@ export function suggestReplacements(
     assignments,
     constraints,
     requiredRoles,
-    maxConsecutiveDays,
-    minConsecutiveDays,
+    avgDaysArmy,
     cityGroupingEnabled,
   } = input;
 
@@ -72,7 +71,7 @@ export function suggestReplacements(
       s.id !== unavailableSoldierId &&
       !constraintSet.has(s.id) &&
       !assignedOnDay.has(s.id) &&
-      !wouldExceedMaxConsecutive(s.id, date, assignments, maxConsecutiveDays),
+      !wouldExceedMaxConsecutive(s.id, date, assignments, deriveHardMax(avgDaysArmy)),
   );
 
   const scored: ReplacementSuggestion[] = candidates.map((s) => {
@@ -97,7 +96,7 @@ export function suggestReplacements(
       reasons.push("קרוב");
     }
 
-    if (minConsecutiveDays != null && hasAdjacentAssignment(s.id, date, assignments)) {
+    if (avgDaysArmy != null && hasAdjacentAssignment(s.id, date, assignments)) {
       score += ADJACENCY_BONUS;
       reasons.push("רציפות");
     }
@@ -121,13 +120,18 @@ export function suggestReplacements(
   return scored.sort((a, b) => b.score - a.score);
 }
 
+function deriveHardMax(avgDaysArmy: number | null | undefined): number | null {
+  if (avgDaysArmy == null) return null;
+  return avgDaysArmy + HARD_MAX_BUFFER;
+}
+
 function wouldExceedMaxConsecutive(
   soldierId: string,
   date: Date,
   assignments: readonly ScheduleAssignment[],
-  maxConsecutiveDays: number | null | undefined,
+  hardMax: number | null | undefined,
 ): boolean {
-  if (maxConsecutiveDays == null) return false;
+  if (hardMax == null) return false;
 
   const onBaseDates = new Set<string>();
   for (const a of assignments) {
@@ -150,7 +154,7 @@ function wouldExceedMaxConsecutive(
     d = addDays(d, 1);
   }
 
-  return streak > maxConsecutiveDays;
+  return streak > hardMax;
 }
 
 function hasAdjacentAssignment(

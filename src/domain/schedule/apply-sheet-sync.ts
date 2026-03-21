@@ -3,11 +3,11 @@ import { dateToString } from "@/lib/date-utils";
 
 const SHEET_VALUE_MAP: Record<
   string,
-  { readonly isOnBase: boolean; readonly absentReason: "sick" | "course" | null } | "skip"
+  { readonly isOnBase: boolean; readonly absentReason: "sick" | "course" | null }
 > = {
   "1": { isOnBase: true, absentReason: null },
   "0": { isOnBase: false, absentReason: null },
-  "X": "skip",
+  "X": { isOnBase: false, absentReason: null },
   "ג": { isOnBase: false, absentReason: "sick" },
   "ק": { isOnBase: false, absentReason: "course" },
   "": { isOnBase: false, absentReason: null },
@@ -49,7 +49,6 @@ export function applySheetSync(
         unmatchedValues.add(cell.value);
         continue;
       }
-      if (mapped === "skip") continue;
 
       const key = `${row.soldierId}::${cell.dateKey}`;
       const current = existingByKey.get(key);

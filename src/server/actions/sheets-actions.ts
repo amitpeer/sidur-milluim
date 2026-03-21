@@ -20,6 +20,7 @@ import {
   getScheduleVersionById,
   createScheduleVersion,
   deleteAllScheduleVersions,
+  deduplicateAssignments,
 } from "@/server/db/stores/schedule-store";
 import {
   getConstraintKeys,
@@ -434,7 +435,7 @@ async function runSync(seasonId: string): Promise<SyncResult> {
     sheetRows.push({ soldierId, cells });
   }
 
-  const existingAssignments = toAssignments(currentVersion.assignments);
+  const existingAssignments = deduplicateAssignments(toAssignments(currentVersion.assignments));
   const syncResult = applySheetSync(existingAssignments, sheetRows);
 
   if (syncResult.changeCount > 0) {

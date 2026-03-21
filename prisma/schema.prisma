@@ -90,8 +90,8 @@ model Season {
   roleMinimums        Json               @default("{}")
   constraintDeadline    DateTime?
   cityGroupingEnabled   Boolean            @default(true)
-  maxConsecutiveDays    Int?
-  minConsecutiveDays    Int?
+  avgDaysArmy           Int?
+  avgDaysHome           Int?
   farAwayExtraDays      Int?
   isActive              Boolean            @default(true)
   members             SeasonMember[]

@@ -15,8 +15,8 @@ export function buildSeason(overrides: Partial<Season> = {}): Season {
     constraintDeadline: null,
     isActive: true,
     cityGroupingEnabled: true,
-    maxConsecutiveDays: null,
-    minConsecutiveDays: null,
+    avgDaysArmy: null,
+    avgDaysHome: null,
     farAwayExtraDays: null,
     ...overrides,
   };

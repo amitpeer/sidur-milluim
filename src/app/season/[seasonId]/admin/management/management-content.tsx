@@ -9,6 +9,7 @@ import {
 } from "@/server/actions/season-actions";
 import {
   getManagementPageDataAction,
+  suggestScheduleConfigAction,
 } from "@/server/actions/schedule-actions";
 import {
   updateAndExportAction,
@@ -36,6 +37,7 @@ interface Props {
   readonly initialPageData: PageData;
   readonly initialSheetExports: SheetExportRow[];
   readonly asTab?: boolean;
+  readonly onScheduleChange?: () => void;
 }
 
 export function ManagementContent({
@@ -43,6 +45,7 @@ export function ManagementContent({
   initialPageData,
   initialSheetExports,
   asTab = false,
+  onScheduleChange,
 }: Props) {
   const router = useRouter();
   const [season, setSeason] = useState(initialPageData.season);
@@ -60,6 +63,10 @@ export function ManagementContent({
   const [pendingExportAction, setPendingExportAction] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [draftSheetUrl, setDraftSheetUrl] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<
+    Awaited<ReturnType<typeof suggestScheduleConfigAction>>
+  >([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const loadData = async () => {
     const [data, exports] = await Promise.all([
@@ -71,6 +78,7 @@ export function ManagementContent({
     setSeason(data.season);
     setWarnings(data.warnings);
     setHasActiveSchedule(data.versions.some((v) => v.isActive));
+    onScheduleChange?.();
   };
 
   const updateBound = updateSeasonAction.bind(null, seasonId);
@@ -229,6 +237,21 @@ export function ManagementContent({
       setSyncMessage(parts.join(" | "));
       await loadData();
     }
+  };
+
+  const handleSuggest = async () => {
+    setSuggestionsLoading(true);
+    const result = await suggestScheduleConfigAction(seasonId);
+    setSuggestions(result);
+    setSuggestionsLoading(false);
+  };
+
+  const applySuggestion = (avgArmy: number, avgHome: number) => {
+    const armyInput = document.getElementById("avgDaysArmy") as HTMLInputElement | null;
+    const homeInput = document.getElementById("avgDaysHome") as HTMLInputElement | null;
+    if (armyInput) armyInput.value = String(avgArmy);
+    if (homeInput) homeInput.value = String(avgHome);
+    setSuggestions([]);
   };
 
   const [startDateVal, setStartDateVal] = useState("");
@@ -486,23 +509,53 @@ export function ManagementContent({
               <input type="hidden" name="roleMinimums" id="roleMinimums" />
             </div>
             <SettingsField
-              label="מינימום ימים רצופים"
-              name="minConsecutiveDays"
+              label="ממוצע ימים בצבא"
+              name="avgDaysArmy"
               type="number"
-              defaultValue={season.minConsecutiveDays != null ? String(season.minConsecutiveDays) : ""}
+              defaultValue={season.avgDaysArmy != null ? String(season.avgDaysArmy) : ""}
               min="1"
               inputMode="numeric"
             />
             <SettingsField
-              label="מקסימום ימים רצופים"
-              name="maxConsecutiveDays"
+              label="ממוצע ימים בבית"
+              name="avgDaysHome"
               type="number"
-              defaultValue={season.maxConsecutiveDays != null ? String(season.maxConsecutiveDays) : ""}
+              defaultValue={season.avgDaysHome != null ? String(season.avgDaysHome) : ""}
               min="1"
               inputMode="numeric"
             />
+            <button
+              type="button"
+              onClick={handleSuggest}
+              disabled={suggestionsLoading}
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {suggestionsLoading ? "מחשב..." : "הצע ערכים"}
+            </button>
+            {suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={`${s.avgDaysArmy}-${s.avgDaysHome}`}
+                    type="button"
+                    onClick={() => applySuggestion(s.avgDaysArmy, s.avgDaysHome)}
+                    className="flex flex-col items-start rounded-lg border border-zinc-200 px-3 py-2 text-right transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+                  >
+                    <span className="text-sm font-medium">{s.label}</span>
+                    <span className={`text-xs font-medium ${s.warningCount === 0 ? "text-green-600" : s.warningCount <= 5 ? "text-emerald-600" : s.warningCount <= 15 ? "text-amber-600" : "text-red-600"}`}>
+                      {`~${s.warningCount} אזהרות`}
+                    </span>
+                    {s.notes.length > 0 && (
+                      <span className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                        {s.notes[0]}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
             <SettingsField
-              label="ימים נוספים לרחוקים"
+              label="תוספת ימים ממוצעת לרחוקים"
               name="farAwayExtraDays"
               type="number"
               defaultValue={season.farAwayExtraDays != null ? String(season.farAwayExtraDays) : ""}

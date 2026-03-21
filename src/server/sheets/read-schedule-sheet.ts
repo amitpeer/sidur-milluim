@@ -69,8 +69,12 @@ function parseDayHeaders(headerRow: unknown[], seasonStart: Date): Date[] {
   const firstDay = parseDayNumber(String(headers[0] ?? ""));
   if (firstDay === null) return [];
 
+  const dateColumnCount = headers.filter(
+    (h) => parseDayNumber(String(h ?? "")) !== null,
+  ).length;
+
   const startDate = inferColumnStartDate(firstDay, seasonStart);
-  return headers.map((_, i) => addDays(startDate, i));
+  return Array.from({ length: dateColumnCount }, (_, i) => addDays(startDate, i));
 }
 
 export async function readScheduleSheet(

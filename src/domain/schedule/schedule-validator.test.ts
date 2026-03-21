@@ -110,6 +110,7 @@ describe("validateSchedule", () => {
     expect(operationalWarnings[0].type).toBe("headcount_low");
   });
 
+
   it("does not warn when role minimums are met", () => {
     const season = buildSeason({
       dailyHeadcount: 2,

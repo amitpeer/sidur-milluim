@@ -11,7 +11,7 @@ export interface Season {
   readonly constraintDeadline: Date | null;
   readonly isActive: boolean;
   readonly cityGroupingEnabled: boolean;
-  readonly maxConsecutiveDays: number | null;
-  readonly minConsecutiveDays: number | null;
+  readonly avgDaysArmy: number | null;
+  readonly avgDaysHome: number | null;
   readonly farAwayExtraDays: number | null;
 }

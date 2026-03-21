@@ -86,9 +86,27 @@ describe("applySheetSync", () => {
     expect(created.absentReason).toBeNull();
   });
 
-  it("skips constraint-off cells (X)", () => {
+  it("syncs constraint-off cells (X) as not on base", () => {
     const assignments = [
-      buildAssignment({ soldierProfileId: "s1", dateStr: "2026-04-01" }),
+      buildAssignment({ soldierProfileId: "s1", dateStr: "2026-04-01", isOnBase: true }),
+    ];
+    const sheetRows = [
+      { soldierId: "s1", cells: [{ dateKey: "2026-04-01", value: "X" }] },
+    ];
+
+    const result = applySheetSync(assignments, sheetRows);
+
+    expect(result.changeCount).toBe(1);
+    const updated = result.assignments.find(
+      (a) => a.soldierProfileId === "s1",
+    )!;
+    expect(updated.isOnBase).toBe(false);
+    expect(updated.absentReason).toBeNull();
+  });
+
+  it("does not change when constraint-off matches existing off-base state", () => {
+    const assignments = [
+      buildAssignment({ soldierProfileId: "s1", dateStr: "2026-04-01", isOnBase: false }),
     ];
     const sheetRows = [
       { soldierId: "s1", cells: [{ dateKey: "2026-04-01", value: "X" }] },

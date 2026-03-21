@@ -21,6 +21,7 @@ import {
 import type { AbsentReason } from "@/domain/schedule/schedule.types";
 import { validateSchedule } from "@/domain/schedule/schedule-validator";
 import { suggestReplacements } from "@/domain/schedule/replacement-suggester";
+import { suggestScheduleConfig } from "@/domain/schedule/schedule-suggester";
 import { getSoldierProfile } from "@/server/db/stores/soldier-store";
 import { getScheduleVersions } from "@/server/db/stores/schedule-store";
 import { dateToString } from "@/lib/date-utils";
@@ -271,18 +272,23 @@ export interface SoldierStats {
   courseDays: number;
 }
 
+export interface StatsResult {
+  readonly stats: SoldierStats[];
+  readonly versionDate: Date | null;
+}
+
 export async function getSoldierStatsAction(
   seasonId: string,
-): Promise<SoldierStats[]> {
+): Promise<StatsResult> {
   const session = await getApprovedSession();
-  if (!session) return [];
+  if (!session) return { stats: [], versionDate: null };
 
   const [seasonDates, version, constraints] = await Promise.all([
     getSeasonDates(seasonId),
     getActiveScheduleVersion(seasonId),
     getConstraintsForSeason(seasonId),
   ]);
-  if (!seasonDates || !version) return [];
+  if (!seasonDates || !version) return { stats: [], versionDate: null };
 
   const start = new Date(seasonDates.startDate);
   const end = new Date(seasonDates.endDate);
@@ -295,24 +301,33 @@ export async function getSoldierStatsAction(
     constraintCounts.set(c.soldierProfileId, (constraintCounts.get(c.soldierProfileId) ?? 0) + 1);
   }
 
+  const constraintKeySet = new Set<string>();
+  for (const c of constraints) {
+    constraintKeySet.add(`${c.soldierProfileId}-${dateToString(new Date(c.date))}`);
+  }
+
   const onBaseCounts = new Map<string, number>();
   const sickCounts = new Map<string, number>();
   const courseCounts = new Map<string, number>();
   const soldierNames = new Map<string, string>();
+  const seen = new Set<string>();
   for (const a of version.assignments) {
     soldierNames.set(a.soldierProfile.id, a.soldierProfile.fullName);
-    if (a.isOnBase) {
-      onBaseCounts.set(a.soldierProfileId, (onBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
-    }
+    const dateStr = dateToString(new Date(a.date));
+    const key = `${a.soldierProfileId}-${dateStr}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const isConstraintDay = constraintKeySet.has(key);
     if (a.absentReason === "sick") {
       sickCounts.set(a.soldierProfileId, (sickCounts.get(a.soldierProfileId) ?? 0) + 1);
-    }
-    if (a.absentReason === "course") {
+    } else if (a.absentReason === "course") {
       courseCounts.set(a.soldierProfileId, (courseCounts.get(a.soldierProfileId) ?? 0) + 1);
+    } else if (a.isOnBase && !isConstraintDay) {
+      onBaseCounts.set(a.soldierProfileId, (onBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
     }
   }
 
-  return [...soldierNames.entries()]
+  const stats = [...soldierNames.entries()]
     .sort((a, b) => a[1].localeCompare(b[1], "he"))
     .map(([id, fullName]) => {
       const daysOnBase = onBaseCounts.get(id) ?? 0;
@@ -323,6 +338,8 @@ export async function getSoldierStatsAction(
       const daysAtHome = totalDays - daysInArmy;
       return { id, fullName, daysInArmy, daysAtHome, constraintDaysOff, sickDays, courseDays };
     });
+
+  return { stats, versionDate: version.generatedAt };
 }
 
 export async function setAbsentReasonAction(
@@ -374,11 +391,33 @@ export async function getManagementPageDataAction(seasonId: string) {
       roleMinimums: season.roleMinimums,
       constraintDeadline: season.constraintDeadline,
       cityGroupingEnabled: season.cityGroupingEnabled,
-      maxConsecutiveDays: season.maxConsecutiveDays,
-      minConsecutiveDays: season.minConsecutiveDays,
+      avgDaysArmy: season.avgDaysArmy,
+      avgDaysHome: season.avgDaysHome,
       farAwayExtraDays: season.farAwayExtraDays ?? null,
     },
     versions,
     warnings,
   };
+}
+
+export async function suggestScheduleConfigAction(seasonId: string) {
+  const session = await getApprovedSession();
+  if (!session) return [];
+
+  const [season, constraints] = await Promise.all([
+    getSeasonById(seasonId),
+    getConstraintsForSeason(seasonId),
+  ]);
+  if (!season) return [];
+
+  const soldiers = buildSeasonSoldiers(season.members);
+
+  return suggestScheduleConfig({
+    season: toDomainSeason(season),
+    soldiers,
+    constraints: constraints.map((c) => ({
+      soldierProfileId: c.soldierProfileId,
+      date: c.date,
+    })),
+  });
 }

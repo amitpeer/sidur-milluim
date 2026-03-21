@@ -52,7 +52,7 @@ export async function createScheduleSheet(
               frozenRowCount: 2,
               frozenColumnCount: 1,
               rowCount: rows.length,
-              columnCount: data.dayColumns.length + 1,
+              columnCount: data.dayColumns.length + 2,
             },
           },
           data: [{ startRow: 0, startColumn: 0, rowData: rows }],
@@ -135,14 +135,14 @@ function buildAllRows(data: PreparedBoardData, layout: SheetLayout): RowData[] {
   rows.push(buildMonthHeaderRow(data));
   rows.push(buildDayHeaderRow(data));
 
-  for (const soldier of data.nonDrivers) {
-    rows.push(buildSoldierRow(soldier, data));
+  for (let i = 0; i < data.nonDrivers.length; i++) {
+    rows.push(buildSoldierRow(data.nonDrivers[i], data, rows.length));
   }
 
   rows.push(buildSeparatorRow(data.dayColumns.length));
 
-  for (const soldier of data.drivers) {
-    rows.push(buildSoldierRow(soldier, data));
+  for (let i = 0; i < data.drivers.length; i++) {
+    rows.push(buildSoldierRow(data.drivers[i], data, rows.length));
   }
 
   rows.push(buildTotalFormulaRow("סה״כ", data, layout));
@@ -161,6 +161,7 @@ function buildMonthHeaderRow(data: PreparedBoardData): RowData {
       cells.push(makeCell("", undefined, HEADER_BG));
     }
   }
+  cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
 }
 
@@ -173,15 +174,20 @@ function buildDayHeaderRow(data: PreparedBoardData): RowData {
       makeCell(`${col.dayName} ${dd}/${mm}`, BOLD_FORMAT, HEADER_BG, "CENTER"),
     );
   }
+  cells.push(makeCell("סה״כ", BOLD_FORMAT, HEADER_BG, "CENTER"));
   return { values: cells };
 }
 
-function buildSoldierRow(soldier: SoldierRow, data: PreparedBoardData): RowData {
+function buildSoldierRow(soldier: SoldierRow, data: PreparedBoardData, rowIndex: number): RowData {
   const cells: CellData[] = [makeCell(soldier.name, BOLD_FORMAT)];
   for (const col of data.dayColumns) {
     const key = `${soldier.id}::${col.dateStr}`;
     cells.push(statusCell(data.statusMap.get(key)));
   }
+  const firstCol = columnLetter(1);
+  const lastCol = columnLetter(data.dayColumns.length);
+  const row = rowIndex + 1;
+  cells.push(makeFormulaCell(`=COUNTIF(${firstCol}${row}:${lastCol}${row},"1")+COUNTIF(${firstCol}${row}:${lastCol}${row},"ק")`, BOLD_FORMAT, HEADER_BG, "CENTER"));
   return { values: cells };
 }
 
@@ -190,6 +196,7 @@ function buildSeparatorRow(dayCount: number): RowData {
   for (let i = 0; i < dayCount; i++) {
     cells.push(makeCell("", undefined, GRAY));
   }
+  cells.push(makeCell("", undefined, GRAY));
   return { values: cells };
 }
 
@@ -204,6 +211,7 @@ function buildTotalFormulaRow(
     const formula = `=COUNTIF(${col}${layout.firstDataRow}:${col}${layout.lastDataRow},"1")`;
     cells.push(makeFormulaCell(formula, BOLD_FORMAT, HEADER_BG, "CENTER"));
   }
+  cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
 }
 
@@ -225,6 +233,7 @@ function buildRoleFormulaRow(
       cells.push(makeFormulaCell(`=${parts.join("+")}`, BOLD_FORMAT, HEADER_BG, "CENTER"));
     }
   }
+  cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
 }
 
