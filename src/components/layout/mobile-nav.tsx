@@ -138,13 +138,21 @@ function AdminSheet({
   seasonId: string;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
+
   return createPortal(
     <div className="fixed inset-0 z-[60] md:hidden">
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
-      <div className="absolute bottom-14 left-0 right-0 rounded-t-2xl border-t border-zinc-200 bg-white px-4 pb-4 pt-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="absolute bottom-16 left-0 right-0 rounded-t-2xl border-t border-zinc-200 bg-white px-4 pb-4 pt-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">ניהול</span>
           <button
