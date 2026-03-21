@@ -71,6 +71,8 @@ export function SoldiersContent({
   const [newCity, setNewCity] = useState("");
   const [stats, setStats] = useState<SoldierStats[]>([]);
   const [statsVersionDate, setStatsVersionDate] = useState<Date | null>(null);
+  const [statsSheetVersion, setStatsSheetVersion] = useState<number | null>(null);
+  const [statsLastSynced, setStatsLastSynced] = useState<Date | null>(null);
   const [statsLoaded, setStatsLoaded] = useState(false);
 
   const loadMembers = async () => {
@@ -85,9 +87,11 @@ export function SoldiersContent({
 
   useEffect(() => {
     if (activeTab === "statistikot" && !statsLoaded) {
-      getSoldierStatsAction(seasonId).then(({ stats: data, versionDate }) => {
-        setStats(data);
-        setStatsVersionDate(versionDate);
+      getSoldierStatsAction(seasonId).then((result) => {
+        setStats(result.stats);
+        setStatsVersionDate(result.versionDate);
+        setStatsSheetVersion(result.sheetVersionNumber);
+        setStatsLastSynced(result.lastSyncedAt);
         setStatsLoaded(true);
       });
     }
@@ -212,7 +216,7 @@ export function SoldiersContent({
 
       {activeTab === "statistikot" && (
         stats.length > 0
-          ? <StatsTable stats={stats} versionDate={statsVersionDate} />
+          ? <StatsTable stats={stats} versionDate={statsVersionDate} sheetVersionNumber={statsSheetVersion} lastSyncedAt={statsLastSynced} />
           : <div className="text-sm text-zinc-400">{statsLoaded ? "אין נתונים עדיין." : "טוען..."}</div>
       )}
 

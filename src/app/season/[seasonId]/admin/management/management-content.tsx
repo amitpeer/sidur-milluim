@@ -375,6 +375,23 @@ export function ManagementContent({
 
         {sheetExports.length > 0 && (
           <Section title="היסטוריית ייצוא ל-Sheets">
+            {(() => {
+              const active = sheetExports.find((e) => e.isActive);
+              if (active?.lastSyncedAt) {
+                return (
+                  <p className="mb-3 text-xs text-zinc-400">
+                    סנכרון אחרון:{" "}
+                    {new Date(active.lastSyncedAt).toLocaleString("he-IL", {
+                      day: "numeric",
+                      month: "long",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                );
+              }
+              return null;
+            })()}
             <div className="flex flex-col gap-2">
               {(showAllExports ? sheetExports : sheetExports.slice(0, 5)).map((exp) => (
                 <div
@@ -388,6 +405,7 @@ export function ManagementContent({
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline dark:text-blue-400"
                     >
+                      {exp.versionNumber > 0 ? `#${exp.versionNumber} — ` : ""}
                       {new Date(exp.createdAt).toLocaleString("he-IL", {
                         day: "numeric",
                         month: "long",

@@ -163,15 +163,17 @@ model ScheduleAssignment {
 }
 
 model SheetExport {
-  id          String   @id @default(cuid())
-  seasonId    String
-  url         String
-  isActive    Boolean  @default(true)
-  isShared    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  createdById String
-  season      Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  id            String    @id @default(cuid())
+  seasonId      String
+  url           String
+  isActive      Boolean   @default(true)
+  isShared      Boolean   @default(false)
+  versionNumber Int       @default(0)
+  lastSyncedAt  DateTime?
+  createdAt     DateTime  @default(now())
+  createdById   String
+  season        Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  createdBy     User      @relation(fields: [createdById], references: [id])
 
   @@index([seasonId, isActive])
 }

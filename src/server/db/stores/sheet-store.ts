@@ -20,6 +20,8 @@ export async function getSheetExports(seasonId: string) {
       url: true,
       isActive: true,
       isShared: true,
+      versionNumber: true,
+      lastSyncedAt: true,
       createdAt: true,
       createdBy: { select: { name: true } },
     },
@@ -34,6 +36,13 @@ export async function createSheetExport(
 ): Promise<void> {
   const shouldActivate = options?.isActive ?? true;
 
+  const lastExport = await prisma.sheetExport.findFirst({
+    where: { seasonId },
+    orderBy: { versionNumber: "desc" },
+    select: { versionNumber: true },
+  });
+  const nextVersion = (lastExport?.versionNumber ?? 0) + 1;
+
   const ops = [];
   if (shouldActivate) {
     ops.push(
@@ -45,7 +54,13 @@ export async function createSheetExport(
   }
   ops.push(
     prisma.sheetExport.create({
-      data: { seasonId, url, createdById: userId, isActive: shouldActivate },
+      data: {
+        seasonId,
+        url,
+        createdById: userId,
+        isActive: shouldActivate,
+        versionNumber: nextVersion,
+      },
     }),
   );
 
@@ -94,10 +109,17 @@ export async function markSheetAsShared(exportId: string): Promise<void> {
   });
 }
 
+export async function updateLastSyncedAt(exportId: string): Promise<void> {
+  await prisma.sheetExport.update({
+    where: { id: exportId },
+    data: { lastSyncedAt: new Date() },
+  });
+}
+
 export async function getActiveSheetExport(seasonId: string) {
   return prisma.sheetExport.findFirst({
     where: { seasonId, isActive: true },
-    select: { id: true, url: true },
+    select: { id: true, url: true, versionNumber: true, lastSyncedAt: true },
     orderBy: { createdAt: "desc" },
   });
 }

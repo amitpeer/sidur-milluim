@@ -37,6 +37,7 @@ import {
   deleteSheetExport,
   getSheetExportById,
   markSheetAsShared,
+  updateLastSyncedAt,
 } from "@/server/db/stores/sheet-store";
 import { getGoogleDriveClient } from "@/server/sheets/google-auth";
 import { prepareBoardData } from "@/app/season/[seasonId]/board/prepare-board-data";
@@ -452,6 +453,8 @@ async function runSync(seasonId: string): Promise<SyncResult> {
   if (syncResult.changeCount > 0) {
     await createScheduleVersion(seasonId, syncResult.assignments);
   }
+
+  await updateLastSyncedAt(activeExport.id);
 
   return {
     success: true,

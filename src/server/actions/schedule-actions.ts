@@ -24,6 +24,7 @@ import { suggestScheduleConfig } from "@/domain/schedule/schedule-suggester";
 import { getSoldierProfile } from "@/server/db/stores/soldier-store";
 import { getScheduleVersions } from "@/server/db/stores/schedule-store";
 import { dateToString } from "@/lib/date-utils";
+import { getActiveSheetExport } from "@/server/db/stores/sheet-store";
 import { prisma } from "@/server/db/client";
 import { buildSeasonSoldiers, toDomainSeason } from "./schedule-mappers";
 
@@ -264,20 +265,23 @@ export interface SoldierStats {
 export interface StatsResult {
   readonly stats: SoldierStats[];
   readonly versionDate: Date | null;
+  readonly sheetVersionNumber: number | null;
+  readonly lastSyncedAt: Date | null;
 }
 
 export async function getSoldierStatsAction(
   seasonId: string,
 ): Promise<StatsResult> {
   const session = await getApprovedSession();
-  if (!session) return { stats: [], versionDate: null };
+  if (!session) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
 
-  const [seasonDates, version, constraints] = await Promise.all([
+  const [seasonDates, version, constraints, activeSheet] = await Promise.all([
     getSeasonDates(seasonId),
     getActiveScheduleVersion(seasonId),
     getConstraintsForSeason(seasonId),
+    getActiveSheetExport(seasonId),
   ]);
-  if (!seasonDates || !version) return { stats: [], versionDate: null };
+  if (!seasonDates || !version) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
 
   const start = new Date(seasonDates.startDate);
   const end = new Date(seasonDates.endDate);
@@ -329,7 +333,12 @@ export async function getSoldierStatsAction(
       return { id, fullName, daysInArmy, totalDaysOff, daysAtHome, constraintDaysOff, sickDays, courseDays };
     });
 
-  return { stats, versionDate: version.generatedAt };
+  return {
+    stats,
+    versionDate: version.generatedAt,
+    sheetVersionNumber: activeSheet?.versionNumber ?? null,
+    lastSyncedAt: activeSheet?.lastSyncedAt ?? null,
+  };
 }
 
 export async function setAbsentReasonAction(

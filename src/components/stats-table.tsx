@@ -25,9 +25,11 @@ const COLUMNS: readonly {
 interface StatsTableProps {
   readonly stats: readonly SoldierStats[];
   readonly versionDate?: Date | null;
+  readonly sheetVersionNumber?: number | null;
+  readonly lastSyncedAt?: Date | null;
 }
 
-export function StatsTable({ stats, versionDate }: StatsTableProps) {
+export function StatsTable({ stats, versionDate, sheetVersionNumber, lastSyncedAt }: StatsTableProps) {
   const [sortField, setSortField] = useState<SortField>("daysInArmy");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -61,18 +63,22 @@ export function StatsTable({ stats, versionDate }: StatsTableProps) {
   return (
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <h3 className="mb-1 text-sm font-medium">סטטיסטיקות ({stats.length})</h3>
-      {versionDate && (
-        <p className="mb-3 text-xs text-zinc-400">
-          גרסה פעילה מתאריך{" "}
-          {new Date(versionDate).toLocaleString("he-IL", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      )}
+      <div className="mb-3 flex flex-col gap-0.5 text-xs text-zinc-400">
+        {sheetVersionNumber != null && sheetVersionNumber > 0 && (
+          <p>גיליון #{sheetVersionNumber}</p>
+        )}
+        {lastSyncedAt && (
+          <p>
+            סנכרון אחרון:{" "}
+            {new Date(lastSyncedAt).toLocaleString("he-IL", {
+              day: "numeric",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
         <table className="w-full text-sm">
           <thead>
