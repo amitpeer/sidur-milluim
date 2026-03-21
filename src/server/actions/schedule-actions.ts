@@ -14,7 +14,6 @@ import {
   getActiveScheduleVersionId,
   getAssignmentsForSoldier,
   getAssignmentsForDateRange,
-  toggleAssignment,
   setAbsentReason,
   findAssignment,
 } from "@/server/db/stores/schedule-store";
@@ -108,17 +107,6 @@ export async function getScheduleWarningsAction(seasonId: string) {
       manualOverride: a.manualOverride,
     })),
   });
-}
-
-export async function toggleAssignmentAction(
-  assignmentId: string,
-  isOnBase: boolean,
-): Promise<{ error?: string; success?: boolean }> {
-  const session = await getApprovedSession();
-  if (!session) return { error: "לא מחובר" };
-
-  await toggleAssignment(assignmentId, isOnBase);
-  return { success: true };
 }
 
 export async function getMyScheduleAction(seasonId: string) {

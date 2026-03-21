@@ -169,12 +169,23 @@ export async function getConstraintsPageDataAction(seasonId: string) {
   const profile = await getSoldierProfile(session.user.id);
   if (!profile) return null;
 
-  const [season, constraints, isMember] = await Promise.all([
+  const [season, allConstraints, isMember] = await Promise.all([
     getSeasonSchedule(seasonId),
     getConstraintsForSoldier(seasonId, profile.id),
     isSeasonMember(seasonId, profile.id),
   ]);
   if (!season || !isMember) return null;
+
+  const start = new Date(season.startDate);
+  const end = new Date(season.endDate);
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+
+  const constraints = allConstraints.filter((c) => {
+    const d = new Date(c.date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d >= start && d <= end;
+  });
 
   return {
     season,
@@ -203,12 +214,23 @@ export async function getAdminConstraintsPageDataAction(seasonId: string) {
   const session = await getApprovedSession();
   if (!session) return null;
 
-  const [constraints, members, seasonDates] = await Promise.all([
+  const [allConstraints, members, seasonDates] = await Promise.all([
     getConstraintsForSeason(seasonId),
     getSeasonMemberNames(seasonId),
     getSeasonDates(seasonId),
   ]);
   if (!seasonDates) return null;
+
+  const start = new Date(seasonDates.startDate);
+  const end = new Date(seasonDates.endDate);
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+
+  const constraints = allConstraints.filter((c) => {
+    const d = new Date(c.date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d >= start && d <= end;
+  });
 
   return { constraints, members, seasonDates };
 }

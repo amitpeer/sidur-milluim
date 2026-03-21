@@ -146,20 +146,6 @@ export async function getScheduleVersions(seasonId: string) {
   });
 }
 
-export async function toggleAssignment(
-  assignmentId: string,
-  isOnBase: boolean,
-) {
-  return prisma.scheduleAssignment.update({
-    where: { id: assignmentId },
-    data: {
-      isOnBase,
-      manualOverride: true,
-      ...(isOnBase && { absentReason: null }),
-    },
-  });
-}
-
 export async function setAbsentReason(
   assignmentId: string,
   reason: AbsentReason | null,
