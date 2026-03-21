@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 
 interface MobileNavProps {
   seasonId: string;
@@ -19,18 +17,8 @@ const RIGHT_ITEMS = [
   { path: "profile", label: "פרופיל", icon: "profile" },
 ] as const;
 
-const ADMIN_MENU_ITEMS = [
-  { path: "admin/soldiers", label: "חיילים" },
-  { path: "admin/management", label: "ניהול סידור" },
-] as const;
-
 export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
   const pathname = usePathname();
-  const [adminSheetOpen, setAdminSheetOpen] = useState(false);
-
-  useEffect(() => {
-    setAdminSheetOpen(false);
-  }, [pathname]);
 
   const boardHref = `/season/${seasonId}/board`;
   const isBoardActive =
@@ -39,68 +27,51 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
   const itemCount = LEFT_ITEMS.length + 1 + RIGHT_ITEMS.length + (isAdmin ? 1 : 0);
 
   return (
-    <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
-        <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${itemCount}, 1fr)` }}>
-          <NavLink
-            href={boardHref}
-            label="בית"
-            icon="board"
-            isActive={isBoardActive}
-          />
-
-          {LEFT_ITEMS.map((item) => (
-            <NavLink
-              key={item.path}
-              href={`/season/${seasonId}/${item.path}`}
-              label={item.label}
-              icon={item.icon}
-              isActive={
-                pathname === `/season/${seasonId}/${item.path}` ||
-                pathname.startsWith(`/season/${seasonId}/${item.path}/`)
-              }
-            />
-          ))}
-
-          {RIGHT_ITEMS.map((item) => (
-            <NavLink
-              key={item.path}
-              href={`/season/${seasonId}/${item.path}`}
-              label={item.label}
-              icon={item.icon}
-              isActive={
-                pathname === `/season/${seasonId}/${item.path}` ||
-                pathname.startsWith(`/season/${seasonId}/${item.path}/`)
-              }
-            />
-          ))}
-
-          {isAdmin && (() => {
-            const isAdminActive = pathname.includes("/admin");
-            return (
-              <button
-                onClick={() => setAdminSheetOpen(!adminSheetOpen)}
-                className={`flex flex-col items-center gap-1 py-2 text-[11px] ${
-                  isAdminActive
-                    ? "text-zinc-900 dark:text-zinc-100"
-                    : "text-zinc-400 dark:text-zinc-500"
-                }`}
-              >
-                <NavIcon type="settings" />
-                ניהול
-                <span className={`h-1 w-1 rounded-full ${isAdminActive ? "bg-zinc-900 dark:bg-zinc-100" : "bg-transparent"}`} />
-              </button>
-            );
-          })()}
-        </div>
-      </nav>
-      {adminSheetOpen && (
-        <AdminSheet
-          seasonId={seasonId}
-          onClose={() => setAdminSheetOpen(false)}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
+      <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${itemCount}, 1fr)` }}>
+        <NavLink
+          href={boardHref}
+          label="בית"
+          icon="board"
+          isActive={isBoardActive}
         />
-      )}
-    </>
+
+        {LEFT_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            href={`/season/${seasonId}/${item.path}`}
+            label={item.label}
+            icon={item.icon}
+            isActive={
+              pathname === `/season/${seasonId}/${item.path}` ||
+              pathname.startsWith(`/season/${seasonId}/${item.path}/`)
+            }
+          />
+        ))}
+
+        {RIGHT_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            href={`/season/${seasonId}/${item.path}`}
+            label={item.label}
+            icon={item.icon}
+            isActive={
+              pathname === `/season/${seasonId}/${item.path}` ||
+              pathname.startsWith(`/season/${seasonId}/${item.path}/`)
+            }
+          />
+        ))}
+
+        {isAdmin && (
+          <NavLink
+            href={`/season/${seasonId}/admin/soldiers`}
+            label="ניהול"
+            icon="settings"
+            isActive={pathname.includes("/admin")}
+          />
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -128,56 +99,6 @@ function NavLink({
       {label}
       <span className={`h-1 w-1 rounded-full ${isActive ? "bg-zinc-900 dark:bg-zinc-100" : "bg-transparent"}`} />
     </Link>
-  );
-}
-
-function AdminSheet({
-  seasonId,
-  onClose,
-}: {
-  seasonId: string;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, []);
-
-  return createPortal(
-    <div className="fixed inset-0 z-[60] md:hidden">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <div className="absolute bottom-16 left-0 right-0 rounded-t-2xl border-t border-zinc-200 bg-white px-4 pb-4 pt-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm font-semibold">ניהול</span>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="flex flex-col gap-1">
-          {ADMIN_MENU_ITEMS.map((item) => (
-            <Link
-              key={item.path}
-              href={`/season/${seasonId}/${item.path}`}
-              className="rounded-lg px-3 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }
 

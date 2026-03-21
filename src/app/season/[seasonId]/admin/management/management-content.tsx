@@ -35,12 +35,14 @@ interface Props {
   readonly seasonId: string;
   readonly initialPageData: PageData;
   readonly initialSheetExports: SheetExportRow[];
+  readonly asTab?: boolean;
 }
 
 export function ManagementContent({
   seasonId,
   initialPageData,
   initialSheetExports,
+  asTab = false,
 }: Props) {
   const router = useRouter();
   const [season, setSeason] = useState(initialPageData.season);
@@ -252,10 +254,8 @@ export function ManagementContent({
   const roleMinimums = (season.roleMinimums ?? {}) as Partial<Record<SoldierRole, number>>;
   const cityGroupingEnabled = season.cityGroupingEnabled ?? true;
 
-  return (
-    <div className="mx-auto max-w-2xl p-6">
-      <h2 className="mb-6 text-xl font-semibold">ניהול סידור</h2>
-
+  const content = (
+    <>
       {settingsState.error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
           {settingsState.error}
@@ -655,6 +655,15 @@ export function ManagementContent({
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (asTab) return content;
+
+  return (
+    <div className="mx-auto max-w-2xl p-6">
+      <h2 className="mb-6 text-xl font-semibold">ניהול סידור</h2>
+      {content}
     </div>
   );
 }

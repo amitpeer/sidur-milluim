@@ -22,27 +22,37 @@ import { AdminConstraintsContent } from "../constraints/constraints-content";
 import { StatsTable } from "@/components/stats-table";
 import {
   getSoldierStatsAction,
+  getManagementPageDataAction,
   type SoldierStats,
 } from "@/server/actions/schedule-actions";
+import { getSheetExportsAction } from "@/server/actions/sheets-actions";
+import { ManagementContent } from "../management/management-content";
 
-type Tab = "chayyalim" | "iluzim" | "statistikot";
+type Tab = "chayyalim" | "iluzim" | "statistikot" | "nihul";
 
 const TABS: readonly { readonly key: Tab; readonly label: string }[] = [
   { key: "chayyalim", label: "חיילים" },
   { key: "iluzim", label: "אילוצים" },
   { key: "statistikot", label: "סטטיסטיקות" },
+  { key: "nihul", label: "ניהול סידור" },
 ];
 
 const initialState: SoldierActionState = {};
 
 type Members = Awaited<ReturnType<typeof getSeasonMembersAction>>;
 type PendingUsers = Awaited<ReturnType<typeof getPendingApprovalUsersAction>>;
+type ManagementPageData = NonNullable<
+  Awaited<ReturnType<typeof getManagementPageDataAction>>
+>;
+type SheetExportRow = Awaited<ReturnType<typeof getSheetExportsAction>>[number];
 
 interface Props {
   readonly seasonId: string;
   readonly initialMembers: Members;
   readonly initialPendingUsers: PendingUsers;
   readonly cities: string[];
+  readonly initialPageData: ManagementPageData;
+  readonly initialSheetExports: SheetExportRow[];
 }
 
 export function SoldiersContent({
@@ -50,6 +60,8 @@ export function SoldiersContent({
   initialMembers,
   initialPendingUsers,
   cities,
+  initialPageData,
+  initialSheetExports,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("chayyalim");
   const [members, setMembers] = useState(initialMembers);
@@ -200,6 +212,15 @@ export function SoldiersContent({
         stats.length > 0
           ? <StatsTable stats={stats} />
           : <div className="text-sm text-zinc-400">{statsLoaded ? "אין נתונים עדיין." : "טוען..."}</div>
+      )}
+
+      {activeTab === "nihul" && (
+        <ManagementContent
+          seasonId={seasonId}
+          initialPageData={initialPageData}
+          initialSheetExports={initialSheetExports}
+          asTab
+        />
       )}
 
       {activeTab === "chayyalim" && (
