@@ -297,13 +297,13 @@ export async function getSoldierStatsAction(
   const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   const constraintCounts = new Map<string, number>();
-  for (const c of constraints) {
-    constraintCounts.set(c.soldierProfileId, (constraintCounts.get(c.soldierProfileId) ?? 0) + 1);
-  }
-
   const constraintKeySet = new Set<string>();
   for (const c of constraints) {
-    constraintKeySet.add(`${c.soldierProfileId}-${dateToString(new Date(c.date))}`);
+    const d = new Date(c.date);
+    d.setUTCHours(0, 0, 0, 0);
+    if (d < start || d > end) continue;
+    constraintCounts.set(c.soldierProfileId, (constraintCounts.get(c.soldierProfileId) ?? 0) + 1);
+    constraintKeySet.add(`${c.soldierProfileId}-${dateToString(d)}`);
   }
 
   const onBaseCounts = new Map<string, number>();
@@ -335,7 +335,7 @@ export async function getSoldierStatsAction(
       const sickDays = sickCounts.get(id) ?? 0;
       const courseDays = courseCounts.get(id) ?? 0;
       const daysInArmy = daysOnBase + courseDays;
-      const daysAtHome = totalDays - daysInArmy;
+      const daysAtHome = totalDays - daysInArmy - constraintDaysOff;
       return { id, fullName, daysInArmy, daysAtHome, constraintDaysOff, sickDays, courseDays };
     });
 
