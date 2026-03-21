@@ -118,7 +118,7 @@ function rebalanceAssignments(
 ): { assignments: ScheduleAssignment[]; removed: number } {
   const editableDays = eachDayInRange(fromDate, season.endDate);
   const editableDateStrs = new Set(editableDays.map(dateToString));
-  const targetPerSoldier = Math.floor(
+  const targetPerSoldier = Math.round(
     (editableDays.length * season.dailyHeadcount) / soldiers.length,
   );
 
@@ -251,6 +251,9 @@ function fillUnderstaffedDays(
         soldiers,
         assignments: result,
         constraints,
+        maxConsecutiveDays: season.maxConsecutiveDays,
+        minConsecutiveDays: season.minConsecutiveDays,
+        cityGroupingEnabled: season.cityGroupingEnabled,
       });
 
       if (suggestions.length === 0) break;
@@ -306,6 +309,9 @@ function fixRoleCoverage(
           assignments: result,
           constraints,
           requiredRoles: [role],
+          maxConsecutiveDays: season.maxConsecutiveDays,
+          minConsecutiveDays: season.minConsecutiveDays,
+          cityGroupingEnabled: season.cityGroupingEnabled,
         });
 
         const roleHolder = suggestions.find((s) => {

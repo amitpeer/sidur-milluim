@@ -316,12 +316,13 @@ describe("patchSchedule", () => {
   });
 
   describe("phase 3: rebalance assignments", () => {
-    it("rebalances when a new soldier is added", () => {
+    it("rebalances when new soldiers are added", () => {
       const soldiers = [
         buildSoldier({ id: "s1" }),
         buildSoldier({ id: "s2" }),
         buildSoldier({ id: "s3" }),
-        buildSoldier({ id: "new-soldier" }),
+        buildSoldier({ id: "new-1" }),
+        buildSoldier({ id: "new-2" }),
       ];
       const season = buildSeason({
         startDate: new Date("2026-03-01T00:00:00.000Z"),
@@ -345,7 +346,7 @@ describe("patchSchedule", () => {
       });
 
       const newSoldierDays = result.assignments.filter(
-        (a) => a.soldierProfileId === "new-soldier" && a.isOnBase,
+        (a) => (a.soldierProfileId === "new-1" || a.soldierProfileId === "new-2") && a.isOnBase,
       ).length;
       expect(newSoldierDays).toBeGreaterThan(0);
     });
@@ -474,6 +475,132 @@ describe("patchSchedule", () => {
         (a) => a.isOnBase && a.date.toISOString().startsWith("2026-03-03"),
       ).length;
       expect(day3Count).toBe(2);
+    });
+  });
+
+  describe("season config enforcement", () => {
+    it("does not assign soldiers past maxConsecutiveDays when filling understaffed days", () => {
+      const soldiers = [
+        buildSoldier({ id: "s1" }),
+        buildSoldier({ id: "s2" }),
+      ];
+      const season = buildSeason({
+        startDate: new Date("2026-03-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-08T00:00:00.000Z"),
+        dailyHeadcount: 1,
+        maxConsecutiveDays: 3,
+      });
+      const assignments = [
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-05" }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-06" }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-07" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-01" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-03" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-04" }),
+      ];
+
+      const result = patchSchedule({
+        assignments,
+        constraintCheckers: [],
+        soldiers,
+        season,
+      });
+
+      const day8Ids = onBaseSoldierIds(result.assignments, "2026-03-08");
+      expect(day8Ids).not.toContain("s1");
+      expect(day8Ids).toContain("s2");
+    });
+
+    it("does not swap in soldiers past maxConsecutiveDays when fixing role coverage", () => {
+      const soldiers = [
+        buildSoldier({ id: "s1", roles: [] }),
+        buildSoldier({ id: "s2", roles: ["driver"] }),
+        buildSoldier({ id: "s3", roles: ["driver"] }),
+      ];
+      const season = buildSeason({
+        startDate: new Date("2026-03-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-03T00:00:00.000Z"),
+        dailyHeadcount: 1,
+        maxConsecutiveDays: 1,
+        roleMinimums: { driver: 1 },
+      });
+      const assignments = [
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
+        buildAssignment({ soldierProfileId: "s3", dateStr: "2026-03-03" }),
+      ];
+
+      const result = patchSchedule({
+        assignments,
+        constraintCheckers: [],
+        soldiers,
+        season,
+      });
+
+      const day1Ids = onBaseSoldierIds(result.assignments, "2026-03-01");
+      expect(day1Ids).not.toContain("s2");
+      expect(day1Ids).toContain("s3");
+    });
+
+    it("prefers soldiers with adjacent assignments when minConsecutiveDays is set", () => {
+      const soldiers = [
+        buildSoldier({ id: "s1" }),
+        buildSoldier({ id: "s2" }),
+        buildSoldier({ id: "s3" }),
+      ];
+      const season = buildSeason({
+        startDate: new Date("2026-03-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-03T00:00:00.000Z"),
+        dailyHeadcount: 1,
+        minConsecutiveDays: 3,
+      });
+      const assignments = [
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
+      ];
+
+      const result = patchSchedule({
+        assignments,
+        constraintCheckers: [],
+        soldiers,
+        season,
+      });
+
+      const day3Ids = onBaseSoldierIds(result.assignments, "2026-03-03");
+      expect(day3Ids).toContain("s2");
+    });
+
+    it("prefers soldiers from same city when cityGroupingEnabled is true", () => {
+      const soldiers = [
+        buildSoldier({ id: "s1", city: "תל אביב" }),
+        buildSoldier({ id: "s3", city: "חיפה" }),
+        buildSoldier({ id: "s2", city: "תל אביב" }),
+      ];
+      const season = buildSeason({
+        startDate: new Date("2026-03-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-03T00:00:00.000Z"),
+        dailyHeadcount: 2,
+        cityGroupingEnabled: true,
+      });
+      const assignments = [
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-01" }),
+        buildAssignment({ soldierProfileId: "s1", dateStr: "2026-03-02" }),
+        buildAssignment({ soldierProfileId: "s3", dateStr: "2026-03-02" }),
+        buildAssignment({ soldierProfileId: "s3", dateStr: "2026-03-03" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-02" }),
+        buildAssignment({ soldierProfileId: "s2", dateStr: "2026-03-03" }),
+      ];
+
+      const result = patchSchedule({
+        assignments,
+        constraintCheckers: [],
+        soldiers,
+        season,
+      });
+
+      const day1Ids = onBaseSoldierIds(result.assignments, "2026-03-01");
+      expect(day1Ids).toContain("s2");
     });
   });
 

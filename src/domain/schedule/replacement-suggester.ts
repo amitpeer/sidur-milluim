@@ -1,7 +1,10 @@
 import type { SoldierRole } from "@/lib/constants";
 import type { SeasonSoldier } from "@/domain/soldier/soldier.types";
 import type { ScheduleAssignment } from "./schedule.types";
-import { dateToString } from "@/lib/date-utils";
+import { dateToString, addDays } from "@/lib/date-utils";
+
+const ADJACENCY_BONUS = 30;
+const CITY_COHESION_BONUS = 3;
 
 interface SuggestInput {
   readonly unavailableSoldierId: string;
@@ -13,6 +16,9 @@ interface SuggestInput {
     readonly date: Date;
   }[];
   readonly requiredRoles?: readonly SoldierRole[];
+  readonly maxConsecutiveDays?: number | null;
+  readonly minConsecutiveDays?: number | null;
+  readonly cityGroupingEnabled?: boolean;
 }
 
 export interface ReplacementSuggestion {
@@ -25,8 +31,17 @@ export interface ReplacementSuggestion {
 export function suggestReplacements(
   input: SuggestInput,
 ): ReplacementSuggestion[] {
-  const { unavailableSoldierId, date, soldiers, assignments, constraints, requiredRoles } =
-    input;
+  const {
+    unavailableSoldierId,
+    date,
+    soldiers,
+    assignments,
+    constraints,
+    requiredRoles,
+    maxConsecutiveDays,
+    minConsecutiveDays,
+    cityGroupingEnabled,
+  } = input;
 
   const dateStr = dateToString(date);
 
@@ -56,7 +71,8 @@ export function suggestReplacements(
     (s) =>
       s.id !== unavailableSoldierId &&
       !constraintSet.has(s.id) &&
-      !assignedOnDay.has(s.id),
+      !assignedOnDay.has(s.id) &&
+      !wouldExceedMaxConsecutive(s.id, date, assignments, maxConsecutiveDays),
   );
 
   const scored: ReplacementSuggestion[] = candidates.map((s) => {
@@ -81,6 +97,19 @@ export function suggestReplacements(
       reasons.push("קרוב");
     }
 
+    if (minConsecutiveDays != null && hasAdjacentAssignment(s.id, date, assignments)) {
+      score += ADJACENCY_BONUS;
+      reasons.push("רציפות");
+    }
+
+    if (cityGroupingEnabled && s.city) {
+      const sameCityCount = countSameCityOnDay(s.city, date, assignments, soldiers);
+      if (sameCityCount > 0) {
+        score += sameCityCount * CITY_COHESION_BONUS;
+        reasons.push("אותה עיר");
+      }
+    }
+
     return {
       soldierId: s.id,
       fullName: s.fullName,
@@ -90,4 +119,69 @@ export function suggestReplacements(
   });
 
   return scored.sort((a, b) => b.score - a.score);
+}
+
+function wouldExceedMaxConsecutive(
+  soldierId: string,
+  date: Date,
+  assignments: readonly ScheduleAssignment[],
+  maxConsecutiveDays: number | null | undefined,
+): boolean {
+  if (maxConsecutiveDays == null) return false;
+
+  const onBaseDates = new Set<string>();
+  for (const a of assignments) {
+    if (a.soldierProfileId === soldierId && a.isOnBase) {
+      onBaseDates.add(dateToString(a.date));
+    }
+  }
+
+  let streak = 1;
+
+  let d = addDays(date, -1);
+  while (onBaseDates.has(dateToString(d))) {
+    streak++;
+    d = addDays(d, -1);
+  }
+
+  d = addDays(date, 1);
+  while (onBaseDates.has(dateToString(d))) {
+    streak++;
+    d = addDays(d, 1);
+  }
+
+  return streak > maxConsecutiveDays;
+}
+
+function hasAdjacentAssignment(
+  soldierId: string,
+  date: Date,
+  assignments: readonly ScheduleAssignment[],
+): boolean {
+  const prevStr = dateToString(addDays(date, -1));
+  const nextStr = dateToString(addDays(date, 1));
+
+  return assignments.some(
+    (a) =>
+      a.soldierProfileId === soldierId &&
+      a.isOnBase &&
+      (dateToString(a.date) === prevStr || dateToString(a.date) === nextStr),
+  );
+}
+
+function countSameCityOnDay(
+  city: string,
+  date: Date,
+  assignments: readonly ScheduleAssignment[],
+  soldiers: readonly SeasonSoldier[],
+): number {
+  const dateStr = dateToString(date);
+  let count = 0;
+  for (const a of assignments) {
+    if (a.isOnBase && dateToString(a.date) === dateStr) {
+      const soldier = soldiers.find((s) => s.id === a.soldierProfileId);
+      if (soldier?.city === city) count++;
+    }
+  }
+  return count;
 }
