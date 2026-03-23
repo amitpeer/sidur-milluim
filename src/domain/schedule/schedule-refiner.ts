@@ -19,7 +19,7 @@ const GAP_PENALTY = 3;
 const ROLE_VIOLATION_PENALTY = 10000;
 const HEADCOUNT_PENALTY = 5000;
 const START_TEMP = 150;
-const COOLING = 0.9995;
+const COOLING = 0.99975;
 const MIN_TEMP = 0.01;
 
 interface SwapMove {
@@ -70,11 +70,25 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
 
   let temp = START_TEMP;
   while (temp > MIN_TEMP) {
-    const move = generateMove(
-      opDayStrs, daySlots, soldierIds, constraintSet, rng, headcount, minBlock,
-    );
+    let move: Move | null = null;
+    let isFairness = false;
 
-    if (move && isValidMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock)) {
+    if (rng.next() < 0.15) {
+      move = generateFairnessSwapMove(opDayStrs, daySlots, soldierDays, constraintSet, rng, rolesById);
+      if (move) isFairness = true;
+    }
+
+    if (!move) {
+      move = generateMove(
+        opDayStrs, daySlots, soldierIds, constraintSet, rng, headcount, minBlock,
+      );
+    }
+
+    const valid = move && (isFairness
+      ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, constraintSet)
+      : isValidMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock));
+
+    if (valid && move) {
       applyMove(move, daySlots, soldierDays);
 
       const newCost = computeCost(
@@ -332,6 +346,102 @@ function generateTransferMove(
   const addId = addable[(rng.next() * addable.length) | 0];
 
   return { type: "transfer", fromDayStr, toDayStr, removeId, addId };
+}
+
+function generateFairnessSwapMove(
+  opDayStrs: readonly string[],
+  daySlots: Map<string, Set<string>>,
+  soldierDays: Map<string, number>,
+  constraintSet: Set<string>,
+  rng: { next: () => number },
+  rolesById: Map<string, readonly SoldierRole[]>,
+): SwapMove | null {
+  const driverIds: string[] = [];
+  const nonDriverIds: string[] = [];
+  for (const [id, roles] of rolesById) {
+    if (roles.includes("driver" as SoldierRole)) {
+      driverIds.push(id);
+    } else {
+      nonDriverIds.push(id);
+    }
+  }
+
+  const group = rng.next() < 0.6 ? driverIds : nonDriverIds;
+  if (group.length < 2) return null;
+
+  const sorted = group
+    .map((id) => ({ id, days: soldierDays.get(id) ?? 0 }))
+    .sort((a, b) => b.days - a.days);
+
+  const topN = Math.min(3, sorted.length);
+  const high = sorted[(rng.next() * topN) | 0];
+
+  const onDays = opDayStrs.filter((ds) => daySlots.get(ds)?.has(high.id));
+  if (onDays.length === 0) return null;
+
+  // Prefer block edges (removing from edge doesn't split a block)
+  const edgeDays = onDays.filter((ds) => {
+    const idx = opDayStrs.indexOf(ds);
+    const prevOn = idx > 0 && daySlots.get(opDayStrs[idx - 1])?.has(high.id);
+    const nextOn = idx < opDayStrs.length - 1 && daySlots.get(opDayStrs[idx + 1])?.has(high.id);
+    return !prevOn || !nextOn;
+  });
+  const removeDayCandidates = edgeDays.length > 0 ? edgeDays : onDays;
+  const dayStr = removeDayCandidates[(rng.next() * removeDayCandidates.length) | 0];
+  const dayIdx = opDayStrs.indexOf(dayStr);
+
+  const lowCandidates = sorted
+    .filter((s) =>
+      s.id !== high.id &&
+      !daySlots.get(dayStr)?.has(s.id) &&
+      !constraintSet.has(`${s.id}:${dayStr}`),
+    )
+    .sort((a, b) => {
+      // Prefer soldiers adjacent to this day (extends their block)
+      const aAdj = (dayIdx > 0 && daySlots.get(opDayStrs[dayIdx - 1])?.has(a.id)) ||
+        (dayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[dayIdx + 1])?.has(a.id)) ? 1 : 0;
+      const bAdj = (dayIdx > 0 && daySlots.get(opDayStrs[dayIdx - 1])?.has(b.id)) ||
+        (dayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[dayIdx + 1])?.has(b.id)) ? 1 : 0;
+      if (aAdj !== bAdj) return bAdj - aAdj;
+      return a.days - b.days;
+    });
+
+  if (lowCandidates.length === 0) return null;
+
+  const bottomN = Math.min(3, lowCandidates.length);
+  const low = lowCandidates[(rng.next() * bottomN) | 0];
+
+  if (high.days <= low.days + 1) return null;
+
+  return { type: "swap", dayStr, removeId: high.id, addId: low.id };
+}
+
+function isValidFairnessSwap(
+  move: SwapMove,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+  hardMax: number | null,
+  constraintSet: Set<string>,
+): boolean {
+  if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
+
+  if (hardMax !== null) {
+    const dayIdx = opDayStrs.indexOf(move.dayStr);
+    if (dayIdx === -1) return false;
+
+    let streak = 1;
+    for (let i = dayIdx - 1; i >= 0; i--) {
+      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
+      else break;
+    }
+    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
+      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
+      else break;
+    }
+    if (streak > hardMax) return false;
+  }
+
+  return true;
 }
 
 function isValidMove(

@@ -56,23 +56,24 @@ npx vitest run src/domain/schedule/benchmarks/export-fixtures.test.ts
 ### Construction (`schedule-generator.ts`)
 
 - `onDuration = ceil(cycle * headcount / N)` — days per soldier in rotation window. Higher = more soldiers raw on-base = more trimming, less padding. Currently `ceil` (5 for 25 soldiers, hc=8, cycle=14).
-- `trimToHeadcount` — sorts by rotation window position descending (right-edge first). Preserves block starts, trims from ends.
+- `trimToHeadcount` — excess role-holders removed first (sorted by most days), then rotation window position descending (right-edge first).
 - `padToHeadcount` — prefers soldiers on-base yesterday (adjacent = extends block).
 - `fixRolesAtHeadcount` — prefers adjacent role-holders, avoids removing mid-block soldiers.
 
 ### Refinement (`schedule-refiner.ts`)
 
 - `START_TEMP = 150` — initial SA temperature
-- `COOLING = 0.9995` — cooling rate. Lower = more iterations. Currently ~19200 iterations.
+- `COOLING = 0.99975` — cooling rate. Lower = more iterations. Currently ~38400 iterations.
 - `FAIRNESS_WEIGHT = 300` — cost multiplier for fairness variance
 - `BLOCK_PENALTY = 200` — cost multiplier for short blocks
 - `HEADCOUNT_PENALTY = 5000` — cost multiplier for headcount violations
-- Move types: 80% swap (same day, different soldiers), 20% transfer (move soldier between days)
-- Adjacency guard: swap-in must extend an existing block; swap-out must not create a short block
+- Move types: 15% fairness swap (within-group, bypasses adjacency), 17% transfer, 68% normal swap
+- Fairness swaps: target high-day↔low-day within same role group (driver↔driver, non-driver↔non-driver). Prefer block edges for removal, adjacent positions for addition.
+- Normal swap adjacency guard: swap-in must extend an existing block; swap-out must not create a short block
 
 ## Known limitations & improvement ideas
 
-- **Fairness ceiling ~13**: Drivers structurally serve more days (4/8 slots = 50% of days vs ~33% for non-role soldiers). True fairness < 10 would require role-weighted fairness or role-specific on-durations.
+- **Fairness floor ~10**: Drivers structurally serve more days (4 mandatory driver slots among 10 drivers = 24.8 days/driver vs 16.5 for non-drivers). The 8-point structural gap plus constraint-driven outliers means variance < 10 is unlikely without role configuration changes.
 - **Short blocks from constraints**: A constraint on day 3 of a 5-day block splits it into 2+2. Construction could offset rotation phases to avoid constraints falling mid-block.
 - **City grouping**: Soldiers from the same city should serve together. Currently affects rotation ordering but not trim/pad.
 - **More fixture scenarios**: Currently only one season ("בדיקה"). Adding more scenarios would make benchmarks more robust.
@@ -90,7 +91,7 @@ benchmarks/
     001-greedy-baseline.json    ← original greedy algorithm
     002-rotation-v1.json        ← first rotation attempt
     ...
-    006-rotation-v5-....json    ← current best
+    007-fairness-targeted-sa.json ← current best
 ```
 
 ---
@@ -205,7 +206,7 @@ benchmarks/
 
 ---
 
-### 006 — Rotation v5: more SA iterations (current)
+### 006 — Rotation v5: more SA iterations
 
 **File:** `results/006-rotation-v5-more-sa-iterations.json`
 
@@ -226,18 +227,53 @@ benchmarks/
 
 ---
 
+### 007 — Fairness-targeted SA (current)
+
+**File:** `results/007-fairness-targeted-sa.json`
+
+**Algorithm:** Two changes targeting fairness:
+
+1. **Construction — excess role-holder trim priority**: `trimToHeadcount` now removes excess role-holders (e.g., 5th driver when minimum is 4) before non-role soldiers, sorted by most days first. Prevents drivers from accumulating extra days through role protection.
+
+2. **SA — within-group fairness swaps**: 15% of SA moves are now "fairness swaps" that target within-group equalization (driver↔driver or non-driver↔non-driver). These bypass adjacency checks but prefer block edges for removal and adjacent positions for addition. COOLING=0.99975 (~38400 iterations, doubled from 006).
+
+| Metric | Value |
+|---|---|
+| Headcount violations | 0 / 62 |
+| Role violations | **0** |
+| Constraint violations | 0 / 26 |
+| Fairness variance | **10** (20-30) |
+| Short blocks (<4d) | **6.3%** (8/126) |
+| Duration | 252ms |
+
+**Block distribution:** 2d:4, 3d:4, 4d:66, 5d:27, 6d:8, 7d:7, 9d:5, 10d:2, 11d:1, 12d:2
+
+**Per-role breakdown:**
+- Drivers (10): 29-30 days each (spread=1, avg=29.6)
+- Non-drivers (15): 20-22 days each (spread=2, avg=21.3)
+
+**Notes:** Major fairness improvement. Driver spread collapsed from 9 (23-32) to 1 (29-30). Overall variance 13 → 10. Short blocks also improved: 7.8% → 6.3%. The remaining 10-point variance is structural: with 4 driver slots among 10 drivers (24.8d/driver), the minimum gap vs non-drivers (16.5d) is ~8. The extra 2 points come from עמית פאר having 11 constraints.
+
+---
+
 ## Comparison Summary
 
-| Metric | 001 Greedy | 003 Rot v2 | 005 Rot v4 | **006 Rot v5** | Target |
+| Metric | 001 Greedy | 003 Rot v2 | 006 Rot v5 | **007 Fairness SA** | Target |
 |---|---|---|---|---|---|
 | Role violations | 7 | **0** | **0** | **0** | 0 |
-| Fairness variance | 20 | **13** | 17 | **13** | < 10 |
-| Short blocks | **6.1%** | 26.8% | 12.5% | **7.8%** | < 10% |
+| Fairness variance | 20 | **13** | **13** | **10** | < 10 |
+| Short blocks | **6.1%** | 26.8% | 7.8% | **6.3%** | < 10% |
 | Headcount violations | 0 | 0 | 0 | 0 | 0 |
-| Duration | 280ms | 49ms | 50ms | 89ms | < 500ms |
+| Duration | 280ms | 49ms | 89ms | 252ms | < 500ms |
 
-**006 vs 001 (greedy baseline):**
+**007 vs 006:**
+- Fairness: 13 → **10** (23% better, near theoretical minimum)
+- Driver spread: 9 → **1** (perfectly equalized)
+- Short blocks: 7.8% → **6.3%** (improved)
+- Duration: 89ms → 252ms (still well under target)
+
+**007 vs 001 (greedy baseline):**
 - Role violations: 7 → **0** (fixed)
-- Fairness: 20 → **13** (35% better)
-- Short blocks: 6.1% → 7.8% (close, within tolerance)
-- Speed: 280ms → 89ms (3x faster)
+- Fairness: 20 → **10** (50% better)
+- Short blocks: 6.1% → 6.3% (comparable)
+- Speed: 280ms → 252ms (comparable)

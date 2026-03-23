@@ -281,12 +281,27 @@ function trimToHeadcount(
   const roleEntries = Object.entries(roleMinimums) as [SoldierRole, number][];
   const soldiersById = new Map(soldiers.map((s) => [s.id, s]));
 
+  const roleCounts = new Map<string, number>();
+  for (const sid of rawOnBase) {
+    const soldier = soldiersById.get(sid);
+    if (soldier) {
+      for (const role of soldier.roles) {
+        roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+      }
+    }
+  }
+
   const removable = [...rawOnBase].sort((a, b) => {
+    const aExcess = hasExcessRole(a, soldiersById, roleEntries, roleCounts);
+    const bExcess = hasExcessRole(b, soldiersById, roleEntries, roleCounts);
+    if (aExcess !== bExcess) return aExcess ? -1 : 1;
+
+    const daysDiff = (soldierDays.get(b) ?? 0) - (soldierDays.get(a) ?? 0);
+    if (daysDiff !== 0) return daysDiff;
+
     const posA = ((dayIdx - (offsets.get(a) ?? 0)) % cycle + cycle) % cycle;
     const posB = ((dayIdx - (offsets.get(b) ?? 0)) % cycle + cycle) % cycle;
-
-    if (posA !== posB) return posB - posA;
-    return (soldierDays.get(b) ?? 0) - (soldierDays.get(a) ?? 0);
+    return posB - posA;
   });
 
   const result = new Set(rawOnBase);
@@ -434,6 +449,22 @@ function fixRolesAtHeadcount(
   }
 
   return result;
+}
+
+function hasExcessRole(
+  soldierId: string,
+  soldiersById: Map<string, SeasonSoldier>,
+  roleEntries: [SoldierRole, number][],
+  roleCounts: Map<string, number>,
+): boolean {
+  const soldier = soldiersById.get(soldierId);
+  if (!soldier || soldier.roles.length === 0) return false;
+
+  return soldier.roles.some((role) => {
+    const min = roleEntries.find(([r]) => r === role)?.[1] ?? 0;
+    const count = roleCounts.get(role) ?? 0;
+    return count > min;
+  });
 }
 
 function wouldBreakRoleMinimums(
