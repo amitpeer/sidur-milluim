@@ -559,7 +559,7 @@ function applyMove(
   daySlots: Map<string, Set<string>>,
   soldierDays: Map<string, number>,
 ): void {
-  if (move.type === "swap" || move.type === "merge") {
+  if (move.type === "swap") {
     const slots = daySlots.get(move.dayStr)!;
     slots.delete(move.removeId);
     slots.add(move.addId);
@@ -580,7 +580,7 @@ function undoMove(
   daySlots: Map<string, Set<string>>,
   soldierDays: Map<string, number>,
 ): void {
-  if (move.type === "swap" || move.type === "merge") {
+  if (move.type === "swap") {
     applyMove(
       { type: "swap", dayStr: move.dayStr, removeId: move.addId, addId: move.removeId },
       daySlots,
