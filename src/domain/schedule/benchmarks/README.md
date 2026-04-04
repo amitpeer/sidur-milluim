@@ -67,13 +67,14 @@ npx vitest run src/domain/schedule/benchmarks/export-fixtures.test.ts
 - `FAIRNESS_WEIGHT = 300` — cost multiplier for fairness variance
 - `BLOCK_PENALTY = 200` — cost multiplier for short blocks
 - `HEADCOUNT_PENALTY = 5000` — cost multiplier for headcount violations
-- Move types: 15% fairness swap (within-group, bypasses adjacency), 17% transfer, 68% normal swap
+- Move types: 10% cross-group swap, 12% within-group fairness swap, 78% general (15.6% transfer, 62.4% normal swap)
+- Cross-group swaps: find days with >driverMin drivers, swap excess driver (most days) with off-base non-driver (fewest days). Checks `wouldCreateShortBlock` on removal.
 - Fairness swaps: target high-day↔low-day within same role group (driver↔driver, non-driver↔non-driver). Prefer block edges for removal, adjacent positions for addition.
 - Normal swap adjacency guard: swap-in must extend an existing block; swap-out must not create a short block
 
 ## Known limitations & improvement ideas
 
-- **Fairness floor ~10**: Drivers structurally serve more days (4 mandatory driver slots among 10 drivers = 24.8 days/driver vs 16.5 for non-drivers). The 8-point structural gap plus constraint-driven outliers means variance < 10 is unlikely without role configuration changes.
+- **Fairness floor ~10**: Drivers structurally serve more days (4 mandatory driver slots among 10 drivers = 24.8 days/driver vs 16.5 for non-drivers). The 8-point structural gap plus constraint-driven outliers means variance < 10 is unlikely without role configuration changes. Cross-group swaps (008) reduce the gap slightly but can't overcome the structural minimum.
 - **Short blocks from constraints**: A constraint on day 3 of a 5-day block splits it into 2+2. Construction could offset rotation phases to avoid constraints falling mid-block.
 - **City grouping**: Soldiers from the same city should serve together. Currently affects rotation ordering but not trim/pad.
 - **More fixture scenarios**: Currently only one season ("בדיקה"). Adding more scenarios would make benchmarks more robust.
@@ -91,7 +92,8 @@ benchmarks/
     001-greedy-baseline.json    ← original greedy algorithm
     002-rotation-v1.json        ← first rotation attempt
     ...
-    007-fairness-targeted-sa.json ← current best
+    007-fairness-targeted-sa.json
+    008-cross-group-driver-cap.json ← current best
 ```
 
 ---
@@ -256,24 +258,57 @@ benchmarks/
 
 ---
 
+### 008 — Cross-group driver capping (current)
+
+**File:** `results/008-cross-group-driver-cap.json`
+
+**Algorithm:** Two changes targeting driver/non-driver variance:
+
+1. **Construction — `capExcessDrivers`**: New step between `trimToHeadcount` and `padToHeadcount`. For each day with more than `roleMinimum` drivers, excess drivers (sorted by most days, block-edge preferred) are replaced with non-drivers (fewest days, adjacent preferred). Maintains headcount exactly. Guards against breaking role minimums for multi-role soldiers.
+
+2. **SA — cross-group balance move**: 10% of SA moves are now "cross-group swaps" that target days with >driverMin drivers. An excess driver (most days, block edge) is swapped with an off-base non-driver (fewest days, adjacent). Guards: `driver.days > nonDriver.days + 2`, `wouldCreateShortBlock` check on removal. SA move distribution: 10% cross-group + 12% within-group fairness + 78% general (was 15% fairness + 85% general).
+
+**Skipped:** Group-aware SA cost function (dual intra/inter-group weights) was tested but reverted — even minimal intra-group weights destabilized SA dynamics, doubling short blocks regardless of tuning.
+
+| Metric | Value |
+|---|---|
+| Headcount violations | 0 / 62 |
+| Role violations | **0** |
+| Constraint violations | 0 / 26 |
+| Fairness variance | **10** (20-30) |
+| Short blocks (<4d) | **3.9%** (5/127) |
+| Duration | 275ms |
+
+**Block distribution:** 2d:1, 3d:4, 4d:68, 5d:32, 6d:4, 7d:7, 8d:3, 9d:7, 10d:1
+
+**Per-role breakdown:**
+- Drivers (10): 29-30 days each (spread=1, avg=29.5)
+- Non-drivers (15): 20-24 days each (spread=4, avg=21.4)
+- Inter-group gap: 8.1, excess driver-slots: 0
+
+**Notes:** Short blocks cut nearly in half (6.3% → 3.9%). Excess driver-slots eliminated (1 → 0). Inter-group gap reduced (8.3 → 8.1). Non-driver spread widened from 2 to 4 (יונתן רוזנברג [commander] at 24d absorbs extra days from cross-group swaps), but overall variance unchanged at 10.
+
+---
+
 ## Comparison Summary
 
-| Metric | 001 Greedy | 003 Rot v2 | 006 Rot v5 | **007 Fairness SA** | Target |
-|---|---|---|---|---|---|
-| Role violations | 7 | **0** | **0** | **0** | 0 |
-| Fairness variance | 20 | **13** | **13** | **10** | < 10 |
-| Short blocks | **6.1%** | 26.8% | 7.8% | **6.3%** | < 10% |
-| Headcount violations | 0 | 0 | 0 | 0 | 0 |
-| Duration | 280ms | 49ms | 89ms | 252ms | < 500ms |
+| Metric | 001 Greedy | 003 Rot v2 | 006 Rot v5 | 007 Fairness SA | **008 Cross-group** | Target |
+|---|---|---|---|---|---|---|
+| Role violations | 7 | **0** | **0** | **0** | **0** | 0 |
+| Fairness variance | 20 | **13** | **13** | **10** | **10** | < 10 |
+| Short blocks | **6.1%** | 26.8% | 7.8% | 6.3% | **3.9%** | < 10% |
+| Headcount violations | 0 | 0 | 0 | 0 | 0 | 0 |
+| Duration | 280ms | 49ms | 89ms | 252ms | 275ms | < 500ms |
 
-**007 vs 006:**
-- Fairness: 13 → **10** (23% better, near theoretical minimum)
-- Driver spread: 9 → **1** (perfectly equalized)
-- Short blocks: 7.8% → **6.3%** (improved)
-- Duration: 89ms → 252ms (still well under target)
+**008 vs 007:**
+- Short blocks: 6.3% → **3.9%** (38% fewer)
+- Excess driver-slots: 1 → **0** (eliminated)
+- Inter-group gap: 8.3 → **8.1** (slightly improved)
+- Non-driver spread: 2 → 4 (wider, but overall variance unchanged)
+- Duration: 252ms → 275ms (comparable)
 
-**007 vs 001 (greedy baseline):**
+**008 vs 001 (greedy baseline):**
 - Role violations: 7 → **0** (fixed)
 - Fairness: 20 → **10** (50% better)
-- Short blocks: 6.1% → 6.3% (comparable)
-- Speed: 280ms → 252ms (comparable)
+- Short blocks: 6.1% → **3.9%** (36% better)
+- Speed: 280ms → 275ms (comparable)

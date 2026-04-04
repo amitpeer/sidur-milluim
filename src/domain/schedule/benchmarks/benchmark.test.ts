@@ -71,6 +71,12 @@ interface BenchmarkResult {
     fairnessVariance: number;
     minDays: number;
     maxDays: number;
+    driverSpread: number;
+    nonDriverSpread: number;
+    avgDriverDays: number;
+    avgNonDriverDays: number;
+    interGroupGap: number;
+    excessDriverSlots: number;
     shortBlockCount: number;
     totalBlocks: number;
     shortBlockPct: number;
@@ -135,9 +141,16 @@ function measure(
   const headcountViolations = countHeadcountViolations(assignments, opDays, season.dailyHeadcount);
   const roleViolations = countRoleViolations(assignments, opDays, season.roleMinimums, soldiers);
   const constraintViolations = countConstraintViolations(assignments, constraints);
-  const { fairnessVariance, minDays, maxDays, perSoldier } = measureFairness(assignments, soldiers);
+  const {
+    fairnessVariance, minDays, maxDays,
+    driverSpread, nonDriverSpread, avgDriverDays, avgNonDriverDays, interGroupGap,
+    perSoldier,
+  } = measureFairness(assignments, soldiers);
   const { shortBlockCount, totalBlocks, shortBlockPct, blockDistribution } =
     measureBlocks(assignments, soldiers, season.avgDaysArmy);
+  const excessDriverSlots = countExcessDriverSlots(
+    assignments, opDays, season.roleMinimums, soldiers,
+  );
 
   return {
     scenarioName,
@@ -160,6 +173,12 @@ function measure(
       fairnessVariance,
       minDays,
       maxDays,
+      driverSpread,
+      nonDriverSpread,
+      avgDriverDays,
+      avgNonDriverDays,
+      interGroupGap,
+      excessDriverSlots,
       shortBlockCount,
       totalBlocks,
       shortBlockPct,
@@ -235,6 +254,11 @@ function measureFairness(
   fairnessVariance: number;
   minDays: number;
   maxDays: number;
+  driverSpread: number;
+  nonDriverSpread: number;
+  avgDriverDays: number;
+  avgNonDriverDays: number;
+  interGroupGap: number;
   perSoldier: BenchmarkResult["perSoldier"];
 } {
   const daysMap = new Map<string, number>();
@@ -249,6 +273,27 @@ function measureFairness(
   const maxDays = Math.max(...counts);
   const minDays = Math.min(...counts);
 
+  const driverDays: number[] = [];
+  const nonDriverDays: number[] = [];
+  for (const s of soldiers) {
+    const d = daysMap.get(s.id) ?? 0;
+    if (s.roles.includes("driver" as SoldierRole)) {
+      driverDays.push(d);
+    } else {
+      nonDriverDays.push(d);
+    }
+  }
+
+  const driverSpread = driverDays.length > 0
+    ? Math.max(...driverDays) - Math.min(...driverDays) : 0;
+  const nonDriverSpread = nonDriverDays.length > 0
+    ? Math.max(...nonDriverDays) - Math.min(...nonDriverDays) : 0;
+  const avgDriverDays = driverDays.length > 0
+    ? Math.round(driverDays.reduce((a, b) => a + b, 0) / driverDays.length * 10) / 10 : 0;
+  const avgNonDriverDays = nonDriverDays.length > 0
+    ? Math.round(nonDriverDays.reduce((a, b) => a + b, 0) / nonDriverDays.length * 10) / 10 : 0;
+  const interGroupGap = Math.round(Math.abs(avgDriverDays - avgNonDriverDays) * 10) / 10;
+
   const perSoldier = soldiers
     .map((s) => ({
       name: s.fullName,
@@ -258,7 +303,37 @@ function measureFairness(
     }))
     .sort((a, b) => b.days - a.days);
 
-  return { fairnessVariance: maxDays - minDays, minDays, maxDays, perSoldier };
+  return {
+    fairnessVariance: maxDays - minDays, minDays, maxDays,
+    driverSpread, nonDriverSpread, avgDriverDays, avgNonDriverDays, interGroupGap,
+    perSoldier,
+  };
+}
+
+function countExcessDriverSlots(
+  assignments: readonly ScheduleAssignment[],
+  opDays: readonly Date[],
+  roleMinimums: Partial<Record<SoldierRole, number>>,
+  soldiers: readonly SeasonSoldier[],
+): number {
+  const driverMin = (roleMinimums as Record<string, number>)["driver"] ?? 0;
+  if (driverMin === 0) return 0;
+
+  const driverIds = new Set(
+    soldiers.filter((s) => s.roles.includes("driver" as SoldierRole)).map((s) => s.id),
+  );
+
+  let excess = 0;
+  for (const day of opDays) {
+    const ds = dateToString(day);
+    const driversOnBase = assignments.filter(
+      (a) => dateToString(a.date) === ds && a.isOnBase && driverIds.has(a.soldierProfileId),
+    ).length;
+    if (driversOnBase > driverMin) {
+      excess += driversOnBase - driverMin;
+    }
+  }
+  return excess;
 }
 
 function measureBlocks(
@@ -322,6 +397,9 @@ function printResult(r: BenchmarkResult): void {
   console.log(`Role violations: ${r.metrics.roleViolations}`);
   console.log(`Constraint violations: ${r.metrics.constraintViolations} / ${r.metrics.totalConstraints}`);
   console.log(`Fairness: ${r.metrics.minDays}-${r.metrics.maxDays} (variance=${r.metrics.fairnessVariance})`);
+  console.log(`  Drivers: spread=${r.metrics.driverSpread}, avg=${r.metrics.avgDriverDays}`);
+  console.log(`  Non-drivers: spread=${r.metrics.nonDriverSpread}, avg=${r.metrics.avgNonDriverDays}`);
+  console.log(`  Inter-group gap: ${r.metrics.interGroupGap}, excess driver-slots: ${r.metrics.excessDriverSlots}`);
   console.log(`Short blocks (<4d): ${r.metrics.shortBlockCount}/${r.metrics.totalBlocks} (${r.metrics.shortBlockPct}%)`);
 
   const sortedDist = Object.entries(r.metrics.blockDistribution)

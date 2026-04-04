@@ -68,12 +68,21 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
     season.roleMinimums, soldiers, minBlock, targetGap, headcount,
   );
 
+  const driverMin = (season.roleMinimums as Record<string, number>)["driver"] ?? 0;
+
   let temp = START_TEMP;
   while (temp > MIN_TEMP) {
     let move: Move | null = null;
     let isFairness = false;
+    let isCrossGroup = false;
 
-    if (rng.next() < 0.15) {
+    const roll = rng.next();
+    if (roll < 0.10) {
+      move = generateCrossGroupMove(
+        opDayStrs, daySlots, soldierDays, constraintSet, rng, rolesById, driverMin,
+      );
+      if (move) isCrossGroup = true;
+    } else if (roll < 0.22) {
       move = generateFairnessSwapMove(opDayStrs, daySlots, soldierDays, constraintSet, rng, rolesById);
       if (move) isFairness = true;
     }
@@ -86,7 +95,9 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
 
     const valid = move && (isFairness
       ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, constraintSet)
-      : isValidMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock));
+      : isCrossGroup
+        ? isValidCrossGroupSwap(move as SwapMove, daySlots, opDayStrs, hardMax, constraintSet, minBlock)
+        : isValidMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock));
 
     if (valid && move) {
       applyMove(move, daySlots, soldierDays);
@@ -414,6 +425,117 @@ function generateFairnessSwapMove(
   if (high.days <= low.days + 1) return null;
 
   return { type: "swap", dayStr, removeId: high.id, addId: low.id };
+}
+
+function generateCrossGroupMove(
+  opDayStrs: readonly string[],
+  daySlots: Map<string, Set<string>>,
+  soldierDays: Map<string, number>,
+  constraintSet: Set<string>,
+  rng: { next: () => number },
+  rolesById: Map<string, readonly SoldierRole[]>,
+  driverMin: number,
+): SwapMove | null {
+  if (driverMin === 0) return null;
+
+  const excessDays = opDayStrs.filter((ds) => {
+    const slots = daySlots.get(ds);
+    if (!slots) return false;
+    let driverCount = 0;
+    for (const sid of slots) {
+      if (rolesById.get(sid)?.includes("driver" as SoldierRole)) driverCount++;
+    }
+    return driverCount > driverMin;
+  });
+  if (excessDays.length === 0) return null;
+
+  const dayStr = excessDays[(rng.next() * excessDays.length) | 0];
+  const dayIdx = opDayStrs.indexOf(dayStr);
+  const slots = daySlots.get(dayStr)!;
+
+  const driversOnBase = [...slots]
+    .filter((sid) => rolesById.get(sid)?.includes("driver" as SoldierRole))
+    .map((id) => ({ id, days: soldierDays.get(id) ?? 0 }))
+    .sort((a, b) => {
+      const daysDiff = b.days - a.days;
+      if (daysDiff !== 0) return daysDiff;
+      const aEdge = isEdgeOfBlock(a.id, dayIdx, daySlots, opDayStrs);
+      const bEdge = isEdgeOfBlock(b.id, dayIdx, daySlots, opDayStrs);
+      if (aEdge !== bEdge) return aEdge ? -1 : 1;
+      return 0;
+    });
+
+  const topN = Math.min(3, driversOnBase.length);
+  const driver = driversOnBase[(rng.next() * topN) | 0];
+
+  const nonDriverCandidates = [...soldierDays.entries()]
+    .filter(([id]) =>
+      !slots.has(id) &&
+      !rolesById.get(id)?.includes("driver" as SoldierRole) &&
+      !constraintSet.has(`${id}:${dayStr}`),
+    )
+    .map(([id, days]) => ({ id, days }))
+    .sort((a, b) => {
+      const aAdj = (dayIdx > 0 && daySlots.get(opDayStrs[dayIdx - 1])?.has(a.id)) ||
+        (dayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[dayIdx + 1])?.has(a.id)) ? 1 : 0;
+      const bAdj = (dayIdx > 0 && daySlots.get(opDayStrs[dayIdx - 1])?.has(b.id)) ||
+        (dayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[dayIdx + 1])?.has(b.id)) ? 1 : 0;
+      if (aAdj !== bAdj) return bAdj - aAdj;
+      return a.days - b.days;
+    });
+
+  if (nonDriverCandidates.length === 0) return null;
+
+  const bottomN = Math.min(3, nonDriverCandidates.length);
+  const nonDriver = nonDriverCandidates[(rng.next() * bottomN) | 0];
+
+  if (driver.days <= nonDriver.days + 2) return null;
+
+  return { type: "swap", dayStr, removeId: driver.id, addId: nonDriver.id };
+}
+
+function isEdgeOfBlock(
+  soldierId: string,
+  dayIdx: number,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+): boolean {
+  const prevOn = dayIdx > 0 && daySlots.get(opDayStrs[dayIdx - 1])?.has(soldierId);
+  const nextOn = dayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[dayIdx + 1])?.has(soldierId);
+  return !prevOn || !nextOn;
+}
+
+function isValidCrossGroupSwap(
+  move: SwapMove,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+  hardMax: number | null,
+  constraintSet: Set<string>,
+  minBlock: number,
+): boolean {
+  if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
+
+  const dayIdx = opDayStrs.indexOf(move.dayStr);
+  if (dayIdx === -1) return false;
+
+  if (wouldCreateShortBlock(move.removeId, dayIdx, daySlots, opDayStrs, minBlock)) {
+    return false;
+  }
+
+  if (hardMax !== null) {
+    let streak = 1;
+    for (let i = dayIdx - 1; i >= 0; i--) {
+      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
+      else break;
+    }
+    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
+      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
+      else break;
+    }
+    if (streak > hardMax) return false;
+  }
+
+  return true;
 }
 
 function isValidFairnessSwap(

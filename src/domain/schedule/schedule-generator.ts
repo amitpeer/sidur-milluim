@@ -187,8 +187,12 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
       rawOnBase, headcount, localDays, soldiers, dateStr, roleMinimums,
       dayIdx, offsets, onDuration, cycle, farAwayExtraDays,
     );
+    const capped = capExcessDrivers(
+      trimmed, localDays, soldiers, dateStr,
+      constraintSet, roleMinimums, result, dayIdx, operationalDays,
+    );
     const padded = padToHeadcount(
-      trimmed, headcount, localDays, soldiers, dateStr,
+      capped, headcount, localDays, soldiers, dateStr,
       constraintSet, roleMinimums, result, dayIdx, operationalDays,
     );
     const fixed = fixRolesAtHeadcount(
@@ -312,6 +316,85 @@ function trimToHeadcount(
   }
 
   return result;
+}
+
+function capExcessDrivers(
+  onBase: Set<string>,
+  soldierDays: Map<string, number>,
+  soldiers: readonly SeasonSoldier[],
+  dateStr: string,
+  constraintSet: Set<string>,
+  roleMinimums: Readonly<Partial<Record<SoldierRole, number>>>,
+  previousSlots: Map<string, Set<string>>,
+  dayIdx: number,
+  operationalDays: readonly Date[],
+): Set<string> {
+  const driverMin = (roleMinimums as Record<string, number>)["driver"] ?? 0;
+  if (driverMin === 0) return onBase;
+
+  const soldiersById = new Map(soldiers.map((s) => [s.id, s]));
+  const roleEntries = Object.entries(roleMinimums) as [SoldierRole, number][];
+
+  const driversOnBase = [...onBase].filter((sid) =>
+    soldiersById.get(sid)?.roles.includes("driver" as SoldierRole),
+  );
+  const excess = driversOnBase.length - driverMin;
+  if (excess <= 0) return onBase;
+
+  const prevDayStr = dayIdx > 0 ? dateToString(operationalDays[dayIdx - 1]) : null;
+  const prevSlots = prevDayStr ? previousSlots.get(prevDayStr) : null;
+
+  const removable = driversOnBase
+    .filter((sid) => !wouldBreakRoleMinimums(sid, onBase, soldiersById, roleEntries))
+    .sort((a, b) => {
+      const daysDiff = (soldierDays.get(b) ?? 0) - (soldierDays.get(a) ?? 0);
+      if (daysDiff !== 0) return daysDiff;
+      const aEdge = isBlockEdge(a, dayIdx, previousSlots, operationalDays);
+      const bEdge = isBlockEdge(b, dayIdx, previousSlots, operationalDays);
+      if (aEdge !== bEdge) return aEdge ? -1 : 1;
+      return 0;
+    });
+
+  const replaceable = soldiers
+    .filter((s) =>
+      !onBase.has(s.id) &&
+      !isConstrained(s.id, dateStr, constraintSet) &&
+      !s.roles.includes("driver" as SoldierRole),
+    )
+    .sort((a, b) => {
+      const aAdj = prevSlots?.has(a.id) ? 0 : 1;
+      const bAdj = prevSlots?.has(b.id) ? 0 : 1;
+      if (aAdj !== bAdj) return aAdj - bAdj;
+      return (soldierDays.get(a.id) ?? 0) - (soldierDays.get(b.id) ?? 0);
+    });
+
+  const result = new Set(onBase);
+  let swapped = 0;
+  let replIdx = 0;
+
+  for (const driverId of removable) {
+    if (swapped >= excess) break;
+    if (replIdx >= replaceable.length) break;
+    result.delete(driverId);
+    result.add(replaceable[replIdx].id);
+    replIdx++;
+    swapped++;
+  }
+
+  return result;
+}
+
+function isBlockEdge(
+  soldierId: string,
+  dayIdx: number,
+  previousSlots: Map<string, Set<string>>,
+  operationalDays: readonly Date[],
+): boolean {
+  if (dayIdx === 0) return true;
+  const prevDayStr = dateToString(operationalDays[dayIdx - 1]);
+  const prevSlots = previousSlots.get(prevDayStr);
+  if (!prevSlots) return true;
+  return !prevSlots.has(soldierId);
 }
 
 function padToHeadcount(
