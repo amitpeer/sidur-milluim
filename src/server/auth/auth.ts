@@ -43,23 +43,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   ...authConfig,
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user?.id) {
         token.sub = user.id;
-        const flags = await getAuthFlags(user.id);
-        token.isApproved = flags.isApproved;
-        token.isAdmin = flags.isAdmin;
       }
-      if (trigger === "update" && token.sub) {
+      if (token.sub) {
         const flags = await getAuthFlags(token.sub);
         token.isApproved = flags.isApproved;
         token.isAdmin = flags.isAdmin;
-      }
-      if (typeof token.isApproved !== "boolean") {
-        token.isApproved = false;
-      }
-      if (typeof token.isAdmin !== "boolean") {
-        token.isAdmin = false;
       }
       return token;
     },
