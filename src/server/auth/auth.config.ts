@@ -5,6 +5,7 @@ export const authConfig: NextAuthConfig = {
   providers: [
     Google({
       allowDangerousEmailAccountLinking: true,
+      authorization: { params: { prompt: "select_account" } },
     }),
   ],
   pages: {
