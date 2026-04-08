@@ -6,6 +6,7 @@ import {
   getSeasonMembersAction,
   getPendingApprovalUsersAction,
   approveUserAction,
+  deleteUserAction,
   removeSoldierFromSeasonAction,
   toggleFarAwayAction,
   updateSoldierProfileAction,
@@ -192,6 +193,12 @@ export function SoldiersContent({
     await Promise.all([loadPendingUsers(), loadMembers()]);
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("למחוק את המשתמש לצמיתות?")) return;
+    setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+    await deleteUserAction(seasonId, userId);
+  };
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
@@ -250,13 +257,21 @@ export function SoldiersContent({
                   <span className="text-sm font-medium">{user.name ?? "ללא שם"}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">{user.email}</span>
                 </div>
-                <button
-                  onClick={() => handleApproveUser(user.id)}
-                  disabled={pendingApprovals[user.id] === true}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {pendingApprovals[user.id] ? "מאשר..." : "אשר משתמש"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApproveUser(user.id)}
+                    disabled={pendingApprovals[user.id] === true}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {pendingApprovals[user.id] ? "מאשר..." : "אשר"}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(user.id)}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    מחק
+                  </button>
+                </div>
               </div>
             ))}
           </div>

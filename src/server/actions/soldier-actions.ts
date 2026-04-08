@@ -205,6 +205,17 @@ export async function getPendingApprovalUsersAction(
   });
 }
 
+export async function deleteUserAction(
+  seasonId: string,
+  userId: string,
+): Promise<SoldierActionState> {
+  const session = await requireSeasonAdmin(seasonId);
+  if (!session) return { error: "אין הרשאה" };
+
+  await prisma.user.delete({ where: { id: userId } });
+  return { success: true };
+}
+
 export async function approveUserAction(
   seasonId: string,
   userId: string,
