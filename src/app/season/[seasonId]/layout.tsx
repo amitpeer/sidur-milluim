@@ -42,6 +42,7 @@ export default async function SeasonLayout({
   ];
 
   const adminNav = [
+    { href: "/", label: "עונות" },
     { href: `/season/${seasonId}/admin/soldiers`, label: "ניהול" },
   ];
 

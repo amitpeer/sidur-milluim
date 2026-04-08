@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getHomePageDataAction } from "@/server/actions/home-actions";
 import { buildChecklistItems } from "@/domain/home/build-checklist-items";
@@ -14,6 +15,7 @@ export default async function BoardPage({ params }: Props) {
 
   const today = new Date();
   const checklistItems = buildChecklistItems({
+    seasonId,
     hasCity: data.hasCity,
     hasConstraints: data.hasConstraints,
     constraintDeadline: data.constraintDeadline
@@ -35,44 +37,55 @@ export default async function BoardPage({ params }: Props) {
       <p className="mb-6 text-sm text-zinc-400">מה צריך לעשות?</p>
 
       <div className="mb-6 flex flex-col gap-3">
-        {checklistItems.map((item) => (
-          <div
-            key={item.key}
-            className={`flex items-center gap-3 rounded-lg border p-4 ${
-              item.isComplete
-                ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
-                : item.urgency === "overdue"
-                  ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950"
-                  : item.urgency === "warning"
-                    ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
-                    : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-            }`}
-          >
-            <span className="text-lg">
-              {item.isComplete ? "✓" : "○"}
-            </span>
-            <div className="flex-1">
-              <span
-                className={`text-sm font-medium ${
-                  item.isComplete
-                    ? "text-green-700 line-through dark:text-green-300"
-                    : ""
-                }`}
-              >
-                {item.label}
+        {checklistItems.map((item) => {
+          const className = `flex items-center gap-3 rounded-lg border p-4 ${
+            item.isComplete
+              ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+              : item.urgency === "overdue"
+                ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950"
+                : item.urgency === "warning"
+                  ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
+                  : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+          }`;
+
+          const content = (
+            <>
+              <span className="text-lg">
+                {item.isComplete ? "✓" : "○"}
               </span>
-              {item.daysLeft !== null && !item.isComplete && (
-                <span className="mr-2 text-xs text-zinc-500">
-                  {item.daysLeft > 0
-                    ? `(${item.daysLeft} ימים נותרו)`
-                    : item.daysLeft === 0
-                      ? "(היום!)"
-                      : `(באיחור של ${Math.abs(item.daysLeft)} ימים)`}
+              <div className="flex-1">
+                <span
+                  className={`text-sm font-medium ${
+                    item.isComplete
+                      ? "text-green-700 line-through dark:text-green-300"
+                      : ""
+                  }`}
+                >
+                  {item.label}
                 </span>
-              )}
+                {item.daysLeft !== null && !item.isComplete && (
+                  <span className="mr-2 text-xs text-zinc-500">
+                    {item.daysLeft > 0
+                      ? `(${item.daysLeft} ימים נותרו)`
+                      : item.daysLeft === 0
+                        ? "(היום!)"
+                        : `(באיחור של ${Math.abs(item.daysLeft)} ימים)`}
+                  </span>
+                )}
+              </div>
+            </>
+          );
+
+          return item.href ? (
+            <Link key={item.key} href={item.href} className={className}>
+              {content}
+            </Link>
+          ) : (
+            <div key={item.key} className={className}>
+              {content}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {data.sheetUrl ? (

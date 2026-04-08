@@ -12,6 +12,7 @@ import {
 } from "@/server/db/stores/season-store";
 import {
   getOrCreateSoldierProfile,
+  getSoldierProfile,
   addSeasonMember,
   isSeasonAdmin,
 } from "@/server/db/stores/soldier-store";
@@ -83,7 +84,17 @@ export async function getSeasonAction(id: string) {
 export async function getActiveSeasonsAction() {
   const session = await getApprovedSession();
   if (!session) return [];
-  return getActiveSeasons();
+
+  const seasons = await getActiveSeasons();
+  const profile = await getSoldierProfile(session.user.id);
+  if (!profile) {
+    return seasons.map((s) => ({ ...s, isAdmin: false }));
+  }
+
+  const adminChecks = await Promise.all(
+    seasons.map((s) => isSeasonAdmin(s.id, profile.id)),
+  );
+  return seasons.map((s, i) => ({ ...s, isAdmin: adminChecks[i] }));
 }
 
 const updateSeasonSchema = z.object({

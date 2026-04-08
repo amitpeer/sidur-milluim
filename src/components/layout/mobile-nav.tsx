@@ -24,7 +24,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
   const isBoardActive =
     pathname === boardHref || pathname.startsWith(boardHref + "/");
 
-  const itemCount = LEFT_ITEMS.length + 1 + RIGHT_ITEMS.length + (isAdmin ? 1 : 0);
+  const itemCount = LEFT_ITEMS.length + 1 + RIGHT_ITEMS.length + (isAdmin ? 2 : 0);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
@@ -63,12 +63,20 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
         ))}
 
         {isAdmin && (
-          <NavLink
-            href={`/season/${seasonId}/admin/soldiers`}
-            label="ניהול"
-            icon="settings"
-            isActive={pathname.includes("/admin")}
-          />
+          <>
+            <NavLink
+              href="/"
+              label="עונות"
+              icon="seasons"
+              isActive={pathname === "/"}
+            />
+            <NavLink
+              href={`/season/${seasonId}/admin/soldiers`}
+              label="ניהול"
+              icon="settings"
+              isActive={pathname.includes("/admin")}
+            />
+          </>
         )}
       </div>
     </nav>
@@ -133,6 +141,12 @@ function NavIcon({ type }: { type: string }) {
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    case "seasons":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       );
     case "settings":

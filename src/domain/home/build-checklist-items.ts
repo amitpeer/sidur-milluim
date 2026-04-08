@@ -1,4 +1,5 @@
 interface ChecklistInput {
+  readonly seasonId: string;
   readonly hasCity: boolean;
   readonly hasConstraints: boolean;
   readonly constraintDeadline: Date | null;
@@ -12,6 +13,7 @@ interface ChecklistItem {
   readonly isComplete: boolean;
   readonly urgency: "info" | "warning" | "overdue" | null;
   readonly daysLeft: number | null;
+  readonly href: string | null;
 }
 
 export function buildChecklistItems(input: ChecklistInput): readonly ChecklistItem[] {
@@ -23,6 +25,7 @@ export function buildChecklistItems(input: ChecklistInput): readonly ChecklistIt
     isComplete: input.hasCity,
     urgency: input.hasCity ? null : "info",
     daysLeft: null,
+    href: input.hasCity ? null : `/season/${input.seasonId}/profile`,
   });
 
   const daysLeft = computeDaysLeft(input.constraintDeadline, input.now);
@@ -37,6 +40,7 @@ export function buildChecklistItems(input: ChecklistInput): readonly ChecklistIt
     isComplete: input.hasConstraints,
     urgency: constraintUrgency,
     daysLeft,
+    href: input.hasConstraints ? null : `/season/${input.seasonId}/my-schedule`,
   });
 
   return items;
