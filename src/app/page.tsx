@@ -37,12 +37,14 @@ export default async function HomePage() {
         </p>
       )}
 
-      <Link
-        href="/season/new"
-        className="mt-8 block w-full rounded-2xl bg-zinc-900 py-4 text-center text-base font-medium text-white transition-colors hover:bg-zinc-800 active:scale-[0.98] dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-      >
-        צור עונה חדשה
-      </Link>
+      {session.user.isAdmin && (
+        <Link
+          href="/season/new"
+          className="mt-8 block w-full rounded-2xl bg-zinc-900 py-4 text-center text-base font-medium text-white transition-colors hover:bg-zinc-800 active:scale-[0.98] dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          צור עונה חדשה
+        </Link>
+      )}
     </main>
   );
 }
