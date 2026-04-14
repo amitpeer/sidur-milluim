@@ -326,6 +326,7 @@ export function SoldiersContent({
               >
                 <div className="flex flex-col gap-1">
                   <span className="text-sm font-medium">{soldier.fullName}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{soldier.email}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {[
                       soldier.city,

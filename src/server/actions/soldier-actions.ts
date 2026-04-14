@@ -180,6 +180,7 @@ export type NonMemberSeason = {
 export type NonMemberSoldier = {
   profileId: string;
   fullName: string;
+  email: string;
   city: string | null;
   roles: string[];
   seasons: NonMemberSeason[];
@@ -201,6 +202,7 @@ export async function getNonMemberSoldiersAction(
       fullName: true,
       city: true,
       roles: true,
+      user: { select: { email: true } },
       seasonMembers: {
         select: { season: { select: { id: true, name: true } } },
       },
@@ -211,6 +213,7 @@ export async function getNonMemberSoldiersAction(
   return profiles.map((p) => ({
     profileId: p.id,
     fullName: p.fullName,
+    email: p.user.email,
     city: p.city,
     roles: p.roles,
     seasons: p.seasonMembers.map((sm) => ({
