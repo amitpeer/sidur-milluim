@@ -109,25 +109,18 @@ export function SoldiersContent({
     await Promise.all([loadMembers(), loadNonMembers()]);
   };
 
-  const handleRemoveFromOtherSeason = async (
-    targetSeasonId: string,
-    profileId: string,
-    seasonName: string,
-  ) => {
-    if (!window.confirm(`להסיר את החייל מהעונה "${seasonName}"?`)) return;
+  const handleRemoveFromAllSeasons = async (soldier: NonMemberSoldier) => {
+    if (!window.confirm(`להסיר את ${soldier.fullName} מכל העונות?`)) return;
 
-    setNonMembers((prev) =>
-      prev
-        .map((s) =>
-          s.profileId === profileId
-            ? { ...s, seasons: s.seasons.filter((sn) => sn.seasonId !== targetSeasonId) }
-            : s,
-        )
-        .filter((s) => s.seasons.length > 0),
+    setNonMembers((prev) => prev.filter((s) => s.profileId !== soldier.profileId));
+
+    const results = await Promise.all(
+      soldier.seasons.map((sn) =>
+        removeExistingSoldierFromSeasonAction(seasonId, sn.seasonId, soldier.profileId),
+      ),
     );
 
-    const result = await removeExistingSoldierFromSeasonAction(seasonId, targetSeasonId, profileId);
-    if (result.error) await loadNonMembers();
+    if (results.some((r) => r.error)) await loadNonMembers();
   };
 
   useEffect(() => {
@@ -350,28 +343,29 @@ export function SoldiersContent({
                       {soldier.seasons.map((sn) => (
                         <span
                           key={sn.seasonId}
-                          className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                         >
                           {sn.seasonName}
-                          <button
-                            onClick={() => handleRemoveFromOtherSeason(sn.seasonId, soldier.profileId, sn.seasonName)}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                            title={`הסר מ-${sn.seasonName}`}
-                          >
-                            ✕
-                          </button>
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => handleAddExistingSoldier(soldier.profileId)}
-                  disabled={addingNonMember[soldier.profileId] === true}
-                  className="shrink-0 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                >
-                  {addingNonMember[soldier.profileId] ? "מוסיף..." : "הוסף לעונה"}
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => handleAddExistingSoldier(soldier.profileId)}
+                    disabled={addingNonMember[soldier.profileId] === true}
+                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  >
+                    {addingNonMember[soldier.profileId] ? "מוסיף..." : "הוסף לעונה"}
+                  </button>
+                  <button
+                    onClick={() => handleRemoveFromAllSeasons(soldier)}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    הסר
+                  </button>
+                </div>
               </div>
             ))}
           </div>
