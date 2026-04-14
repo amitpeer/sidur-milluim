@@ -629,11 +629,11 @@ export function ManagementContent({
               accent="blue"
             />
             <DateField
-              label='סיום אל"ת'
+              label='יום אל"ת אחרון'
               name="trainingEndDate"
               value={trainingEndDateVal}
               onChange={setTrainingEndDateVal}
-              description="סיום תקופת האימונים"
+              description="יום זה עדיין אל&quot;ת. הסידור מתחיל ביום שאחריו."
               min={startDateVal}
               max={endDateVal}
               accent="amber"
