@@ -191,16 +191,10 @@ export async function getNonMemberSoldiersAction(
   const session = await requireSeasonAdmin(seasonId);
   if (!session) return [];
 
-  const currentMemberProfileIds = await prisma.seasonMember.findMany({
-    where: { seasonId },
-    select: { soldierProfileId: true },
-  });
-  const excludeIds = currentMemberProfileIds.map((m) => m.soldierProfileId);
-
   const profiles = await prisma.soldierProfile.findMany({
     where: {
-      id: { notIn: excludeIds },
       user: { isApproved: true },
+      seasonMembers: { none: { seasonId } },
     },
     select: {
       id: true,
