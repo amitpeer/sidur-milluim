@@ -7,7 +7,7 @@ import {
   getPendingApprovalUsersAction,
   getNonMemberSoldiersAction,
   addExistingSoldierToSeasonAction,
-  removeExistingSoldierFromSeasonAction,
+  deleteNonMemberSoldierAction,
   approveUserAction,
   deleteUserAction,
   removeSoldierFromSeasonAction,
@@ -109,18 +109,13 @@ export function SoldiersContent({
     await Promise.all([loadMembers(), loadNonMembers()]);
   };
 
-  const handleRemoveFromAllSeasons = async (soldier: NonMemberSoldier) => {
-    if (!window.confirm(`להסיר את ${soldier.fullName} מכל העונות?`)) return;
+  const handleDeleteNonMember = async (soldier: NonMemberSoldier) => {
+    if (!window.confirm(`למחוק את ${soldier.fullName} לצמיתות?`)) return;
 
     setNonMembers((prev) => prev.filter((s) => s.profileId !== soldier.profileId));
 
-    const results = await Promise.all(
-      soldier.seasons.map((sn) =>
-        removeExistingSoldierFromSeasonAction(seasonId, sn.seasonId, soldier.profileId),
-      ),
-    );
-
-    if (results.some((r) => r.error)) await loadNonMembers();
+    const result = await deleteNonMemberSoldierAction(seasonId, soldier.profileId);
+    if (result.error) await loadNonMembers();
   };
 
   useEffect(() => {
@@ -361,7 +356,7 @@ export function SoldiersContent({
                     {addingNonMember[soldier.profileId] ? "מוסיף..." : "הוסף לעונה"}
                   </button>
                   <button
-                    onClick={() => handleRemoveFromAllSeasons(soldier)}
+                    onClick={() => handleDeleteNonMember(soldier)}
                     className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
                   >
                     הסר

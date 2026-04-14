@@ -223,15 +223,22 @@ export async function getNonMemberSoldiersAction(
   }));
 }
 
-export async function removeExistingSoldierFromSeasonAction(
+export async function deleteNonMemberSoldierAction(
   currentSeasonId: string,
-  targetSeasonId: string,
   soldierProfileId: string,
 ): Promise<SoldierActionState> {
   const session = await requireSeasonAdmin(currentSeasonId);
   if (!session) return { error: "אין הרשאה" };
 
-  await removeSeasonMember(targetSeasonId, soldierProfileId);
+  const profile = await prisma.soldierProfile.findUnique({
+    where: { id: soldierProfileId },
+    select: { userId: true },
+  });
+  if (!profile) return { error: "חייל לא נמצא" };
+
+  await prisma.soldierProfile.delete({ where: { id: soldierProfileId } });
+  await prisma.user.delete({ where: { id: profile.userId } });
+
   return { success: true };
 }
 
