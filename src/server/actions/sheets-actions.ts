@@ -83,6 +83,7 @@ async function exportCurrentSchedule(
   const url = await createScheduleSheet(data, seasonName, {
     dailyHeadcount: seasonConfig.dailyHeadcount,
     roleMinimums,
+    trainingEndDate: seasonConfig.trainingEndDate,
   });
   await createSheetExport(seasonId, url, userId, asDraft ? { isActive: false } : undefined);
   return { url };

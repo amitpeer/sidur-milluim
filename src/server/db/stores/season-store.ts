@@ -60,6 +60,7 @@ export async function getSeasonConfig(id: string) {
       endDate: true,
       dailyHeadcount: true,
       roleMinimums: true,
+      trainingEndDate: true,
     },
   });
 }

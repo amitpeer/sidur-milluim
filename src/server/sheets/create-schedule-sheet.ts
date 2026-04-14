@@ -1,6 +1,7 @@
 import type { PreparedBoardData } from "@/app/season/[seasonId]/board/prepare-board-data";
 import type { SoldierRow, CellStatus } from "@/app/season/[seasonId]/board/board.types";
 import { getGoogleSheetsClient, getGoogleDriveClient } from "./google-auth";
+import { dateToString } from "@/lib/date-utils";
 import type { sheets_v4 } from "googleapis";
 
 type RowData = sheets_v4.Schema$RowData;
@@ -16,11 +17,13 @@ const LIGHT_BLUE = { red: 0.6, green: 0.78, blue: 0.95 };
 const DARK_ORANGE = { red: 0.9, green: 0.6, blue: 0.2 };
 const GRAY = { red: 0.9, green: 0.9, blue: 0.9 };
 const HEADER_BG = { red: 0.95, green: 0.95, blue: 0.95 };
+const TRAINING_BG = { red: 0.93, green: 0.91, blue: 0.97 };
 const BOLD_FORMAT = { bold: true };
 
 interface ScheduleMinimums {
   readonly dailyHeadcount: number;
   readonly roleMinimums: Readonly<Partial<Record<string, number>>>;
+  readonly trainingEndDate?: Date | null;
 }
 
 interface SheetLayout {
@@ -38,7 +41,8 @@ export async function createScheduleSheet(
 ): Promise<string> {
   const sheets = await getGoogleSheetsClient();
   const layout = computeSheetLayout(data);
-  const rows = buildAllRows(data, layout);
+  const trainingCols = buildTrainingColumns(data, minimums.trainingEndDate);
+  const rows = buildAllRows(data, layout, trainingCols);
 
   const response = await sheets.spreadsheets.create({
     requestBody: {
@@ -129,60 +133,81 @@ function computeSheetLayout(data: PreparedBoardData): SheetLayout {
   return { firstDataRow, lastDataRow, roleRows, totalRowIndex, roleRowIndices };
 }
 
-function buildAllRows(data: PreparedBoardData, layout: SheetLayout): RowData[] {
+function buildTrainingColumns(
+  data: PreparedBoardData,
+  trainingEndDate?: Date | null,
+): Set<number> {
+  const cols = new Set<number>();
+  if (!trainingEndDate) return cols;
+  const cutoff = dateToString(trainingEndDate);
+  for (let i = 0; i < data.dayColumns.length; i++) {
+    if (data.dayColumns[i].dateStr <= cutoff) cols.add(i);
+  }
+  return cols;
+}
+
+function buildAllRows(data: PreparedBoardData, layout: SheetLayout, trainingCols: Set<number>): RowData[] {
   const rows: RowData[] = [];
 
-  rows.push(buildMonthHeaderRow(data));
-  rows.push(buildDayHeaderRow(data));
+  rows.push(buildMonthHeaderRow(data, trainingCols));
+  rows.push(buildDayHeaderRow(data, trainingCols));
 
   for (let i = 0; i < data.nonDrivers.length; i++) {
-    rows.push(buildSoldierRow(data.nonDrivers[i], data, rows.length));
+    rows.push(buildSoldierRow(data.nonDrivers[i], data, rows.length, trainingCols));
   }
 
   rows.push(buildSeparatorRow(data.dayColumns.length));
 
   for (let i = 0; i < data.drivers.length; i++) {
-    rows.push(buildSoldierRow(data.drivers[i], data, rows.length));
+    rows.push(buildSoldierRow(data.drivers[i], data, rows.length, trainingCols));
   }
 
-  rows.push(buildTotalFormulaRow("סה״כ", data, layout));
-  rows.push(buildRoleFormulaRow("מפקדים", data, layout, "commander"));
-  rows.push(buildRoleFormulaRow("נהגים", data, layout, "driver"));
-  rows.push(buildRoleFormulaRow("נווטים", data, layout, "navigator"));
+  rows.push(buildTotalFormulaRow("סה״כ", data, layout, trainingCols));
+  rows.push(buildRoleFormulaRow("מפקדים", data, layout, "commander", trainingCols));
+  rows.push(buildRoleFormulaRow("נהגים", data, layout, "driver", trainingCols));
+  rows.push(buildRoleFormulaRow("נווטים", data, layout, "navigator", trainingCols));
 
   return rows;
 }
 
-function buildMonthHeaderRow(data: PreparedBoardData): RowData {
+function buildMonthHeaderRow(data: PreparedBoardData, trainingCols: Set<number>): RowData {
   const cells: CellData[] = [makeCell("", { bold: true }, HEADER_BG)];
+  let colIdx = 0;
   for (const group of data.monthGroups) {
-    cells.push(makeCell(group.month, BOLD_FORMAT, HEADER_BG, "CENTER"));
+    const bg = trainingCols.has(colIdx) ? TRAINING_BG : HEADER_BG;
+    cells.push(makeCell(group.month, BOLD_FORMAT, bg, "CENTER"));
     for (let i = 1; i < group.colSpan; i++) {
-      cells.push(makeCell("", undefined, HEADER_BG));
+      const innerBg = trainingCols.has(colIdx + i) ? TRAINING_BG : HEADER_BG;
+      cells.push(makeCell("", undefined, innerBg));
     }
+    colIdx += group.colSpan;
   }
   cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
 }
 
-function buildDayHeaderRow(data: PreparedBoardData): RowData {
+function buildDayHeaderRow(data: PreparedBoardData, trainingCols: Set<number>): RowData {
   const cells: CellData[] = [makeCell("שם", BOLD_FORMAT, HEADER_BG)];
-  for (const col of data.dayColumns) {
+  for (let i = 0; i < data.dayColumns.length; i++) {
+    const col = data.dayColumns[i];
     const dd = String(col.dateNumber).padStart(2, "0");
     const mm = String(col.date.getUTCMonth() + 1).padStart(2, "0");
+    const bg = trainingCols.has(i) ? TRAINING_BG : HEADER_BG;
     cells.push(
-      makeCell(`${col.dayName} ${dd}/${mm}`, BOLD_FORMAT, HEADER_BG, "CENTER"),
+      makeCell(`${col.dayName} ${dd}/${mm}`, BOLD_FORMAT, bg, "CENTER"),
     );
   }
   cells.push(makeCell("סה״כ", BOLD_FORMAT, HEADER_BG, "CENTER"));
   return { values: cells };
 }
 
-function buildSoldierRow(soldier: SoldierRow, data: PreparedBoardData, rowIndex: number): RowData {
+function buildSoldierRow(soldier: SoldierRow, data: PreparedBoardData, rowIndex: number, trainingCols: Set<number>): RowData {
   const cells: CellData[] = [makeCell(soldier.name, BOLD_FORMAT)];
-  for (const col of data.dayColumns) {
+  for (let i = 0; i < data.dayColumns.length; i++) {
+    const col = data.dayColumns[i];
     const key = `${soldier.id}::${col.dateStr}`;
-    cells.push(statusCell(data.statusMap.get(key)));
+    const isTraining = trainingCols.has(i);
+    cells.push(statusCell(data.statusMap.get(key), isTraining));
   }
   const firstCol = columnLetter(1);
   const lastCol = columnLetter(data.dayColumns.length);
@@ -204,12 +229,14 @@ function buildTotalFormulaRow(
   label: string,
   data: PreparedBoardData,
   layout: SheetLayout,
+  trainingCols: Set<number>,
 ): RowData {
   const cells: CellData[] = [makeCell(label, BOLD_FORMAT, HEADER_BG)];
   for (let i = 0; i < data.dayColumns.length; i++) {
     const col = columnLetter(i + 1);
     const formula = `=COUNTIF(${col}${layout.firstDataRow}:${col}${layout.lastDataRow},"1")`;
-    cells.push(makeFormulaCell(formula, BOLD_FORMAT, HEADER_BG, "CENTER"));
+    const bg = trainingCols.has(i) ? TRAINING_BG : HEADER_BG;
+    cells.push(makeFormulaCell(formula, BOLD_FORMAT, bg, "CENTER"));
   }
   cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
@@ -220,30 +247,33 @@ function buildRoleFormulaRow(
   data: PreparedBoardData,
   layout: SheetLayout,
   role: string,
+  trainingCols: Set<number>,
 ): RowData {
   const cells: CellData[] = [makeCell(label, BOLD_FORMAT, HEADER_BG)];
   const rows = layout.roleRows.get(role) ?? [];
 
   for (let i = 0; i < data.dayColumns.length; i++) {
     const col = columnLetter(i + 1);
+    const bg = trainingCols.has(i) ? TRAINING_BG : HEADER_BG;
     if (rows.length === 0) {
-      cells.push(makeCell("0", BOLD_FORMAT, HEADER_BG, "CENTER"));
+      cells.push(makeCell("0", BOLD_FORMAT, bg, "CENTER"));
     } else {
       const parts = rows.map((r) => `COUNTIF(${col}${r},"1")`);
-      cells.push(makeFormulaCell(`=${parts.join("+")}`, BOLD_FORMAT, HEADER_BG, "CENTER"));
+      cells.push(makeFormulaCell(`=${parts.join("+")}`, BOLD_FORMAT, bg, "CENTER"));
     }
   }
   cells.push(makeCell("", undefined, HEADER_BG));
   return { values: cells };
 }
 
-function statusCell(status: CellStatus | undefined): CellData {
-  if (status === "present") return makeCell("1", undefined, undefined, "CENTER");
-  if (status === "constraint-off") return makeCell("X", undefined, undefined, "CENTER");
-  if (status === "rotation-off") return makeCell("0", undefined, undefined, "CENTER");
-  if (status === "sick") return makeCell("ג", undefined, undefined, "CENTER");
-  if (status === "course") return makeCell("ק", undefined, undefined, "CENTER");
-  return makeCell("", undefined, undefined, "CENTER");
+function statusCell(status: CellStatus | undefined, isTraining: boolean): CellData {
+  const bg = isTraining ? TRAINING_BG : undefined;
+  if (status === "present") return makeCell("1", undefined, bg, "CENTER");
+  if (status === "constraint-off") return makeCell("X", undefined, bg, "CENTER");
+  if (status === "rotation-off") return makeCell("0", undefined, bg, "CENTER");
+  if (status === "sick") return makeCell("ג", undefined, bg, "CENTER");
+  if (status === "course") return makeCell("ק", undefined, bg, "CENTER");
+  return makeCell("", undefined, bg, "CENTER");
 }
 
 function makeCell(
