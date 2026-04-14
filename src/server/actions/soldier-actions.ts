@@ -172,6 +172,58 @@ export async function setMemberRoleAction(
   return { success: true };
 }
 
+export type NonMemberSoldier = {
+  profileId: string;
+  fullName: string;
+  city: string | null;
+  roles: string[];
+};
+
+export async function getNonMemberSoldiersAction(
+  seasonId: string,
+): Promise<NonMemberSoldier[]> {
+  const session = await requireSeasonAdmin(seasonId);
+  if (!session) return [];
+
+  const currentMemberProfileIds = await prisma.seasonMember.findMany({
+    where: { seasonId },
+    select: { soldierProfileId: true },
+  });
+  const excludeIds = currentMemberProfileIds.map((m) => m.soldierProfileId);
+
+  const profiles = await prisma.soldierProfile.findMany({
+    where: {
+      id: { notIn: excludeIds },
+      user: { isApproved: true },
+    },
+    select: {
+      id: true,
+      fullName: true,
+      city: true,
+      roles: true,
+    },
+    orderBy: { fullName: "asc" },
+  });
+
+  return profiles.map((p) => ({
+    profileId: p.id,
+    fullName: p.fullName,
+    city: p.city,
+    roles: p.roles,
+  }));
+}
+
+export async function addExistingSoldierToSeasonAction(
+  seasonId: string,
+  soldierProfileId: string,
+): Promise<SoldierActionState> {
+  const session = await requireSeasonAdmin(seasonId);
+  if (!session) return { error: "אין הרשאה" };
+
+  await addSeasonMember(seasonId, soldierProfileId);
+  return { success: true };
+}
+
 export async function getSeasonMembersAction(seasonId: string) {
   const session = await getApprovedSession();
   if (!session) return [];

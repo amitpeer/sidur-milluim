@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import {
   getSeasonMembersAction,
   getPendingApprovalUsersAction,
+  getNonMemberSoldiersAction,
 } from "@/server/actions/soldier-actions";
 import { getManagementPageDataAction } from "@/server/actions/schedule-actions";
 import { getSheetExportsAction } from "@/server/actions/sheets-actions";
@@ -15,10 +16,11 @@ interface Props {
 export default async function AdminSoldiersPage({ params }: Props) {
   const { seasonId } = await params;
 
-  const [members, pendingUsers, cities, managementData, sheetExports] =
+  const [members, pendingUsers, nonMembers, cities, managementData, sheetExports] =
     await Promise.all([
       getSeasonMembersAction(seasonId),
       getPendingApprovalUsersAction(seasonId),
+      getNonMemberSoldiersAction(seasonId),
       fetchIsraelCities(),
       getManagementPageDataAction(seasonId),
       getSheetExportsAction(seasonId),
@@ -32,6 +34,7 @@ export default async function AdminSoldiersPage({ params }: Props) {
       seasonId={seasonId}
       initialMembers={members}
       initialPendingUsers={pendingUsers}
+      initialNonMembers={nonMembers}
       cities={cities}
       initialPageData={managementData}
       initialSheetExports={sheetExports}

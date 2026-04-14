@@ -5,6 +5,8 @@ import {
   addSoldierToSeasonAction,
   getSeasonMembersAction,
   getPendingApprovalUsersAction,
+  getNonMemberSoldiersAction,
+  addExistingSoldierToSeasonAction,
   approveUserAction,
   deleteUserAction,
   removeSoldierFromSeasonAction,
@@ -12,6 +14,7 @@ import {
   updateSoldierProfileAction,
   setMemberRoleAction,
   type SoldierActionState,
+  type NonMemberSoldier,
 } from "@/server/actions/soldier-actions";
 import {
   SOLDIER_ROLES,
@@ -51,6 +54,7 @@ interface Props {
   readonly seasonId: string;
   readonly initialMembers: Members;
   readonly initialPendingUsers: PendingUsers;
+  readonly initialNonMembers: NonMemberSoldier[];
   readonly cities: string[];
   readonly initialPageData: ManagementPageData;
   readonly initialSheetExports: SheetExportRow[];
@@ -60,6 +64,7 @@ export function SoldiersContent({
   seasonId,
   initialMembers,
   initialPendingUsers,
+  initialNonMembers,
   cities,
   initialPageData,
   initialSheetExports,
@@ -67,6 +72,8 @@ export function SoldiersContent({
   const [activeTab, setActiveTab] = useState<Tab>("chayyalim");
   const [members, setMembers] = useState(initialMembers);
   const [pendingUsers, setPendingUsers] = useState(initialPendingUsers);
+  const [nonMembers, setNonMembers] = useState(initialNonMembers);
+  const [addingNonMember, setAddingNonMember] = useState<Record<string, boolean>>({});
   const [pendingApprovals, setPendingApprovals] = useState<Record<string, boolean>>({});
   const [approvalMessage, setApprovalMessage] = useState("");
   const [newCity, setNewCity] = useState("");
@@ -84,6 +91,21 @@ export function SoldiersContent({
   const loadPendingUsers = async () => {
     const data = await getPendingApprovalUsersAction(seasonId);
     setPendingUsers(data);
+  };
+
+  const loadNonMembers = async () => {
+    const data = await getNonMemberSoldiersAction(seasonId);
+    setNonMembers(data);
+  };
+
+  const handleAddExistingSoldier = async (profileId: string) => {
+    setAddingNonMember((prev) => ({ ...prev, [profileId]: true }));
+    const result = await addExistingSoldierToSeasonAction(seasonId, profileId);
+    setAddingNonMember((prev) => ({ ...prev, [profileId]: false }));
+
+    if (result.error) return;
+
+    await Promise.all([loadMembers(), loadNonMembers()]);
   };
 
   useEffect(() => {
@@ -277,6 +299,43 @@ export function SoldiersContent({
           </div>
         )}
       </div>
+
+      {nonMembers.length > 0 && (
+        <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+          <h3 className="mb-4 text-base font-medium">חיילים מעונות אחרות</h3>
+          <div className="space-y-2">
+            {nonMembers.map((soldier) => (
+              <div
+                key={soldier.profileId}
+                className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-700"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{soldier.fullName}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {[
+                      soldier.city,
+                      soldier.roles.length > 0
+                        ? soldier.roles
+                            .map((r) => SOLDIER_ROLE_LABELS[r as SoldierRole] ?? r)
+                            .join(", ")
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleAddExistingSoldier(soldier.profileId)}
+                  disabled={addingNonMember[soldier.profileId] === true}
+                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  {addingNonMember[soldier.profileId] ? "מוסיף..." : "הוסף לעונה"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="mb-4 text-base font-medium">הוספת חייל</h3>
