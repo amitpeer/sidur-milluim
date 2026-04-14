@@ -7,6 +7,7 @@ import {
   getPendingApprovalUsersAction,
   getNonMemberSoldiersAction,
   addExistingSoldierToSeasonAction,
+  removeExistingSoldierFromSeasonAction,
   approveUserAction,
   deleteUserAction,
   removeSoldierFromSeasonAction,
@@ -106,6 +107,27 @@ export function SoldiersContent({
     if (result.error) return;
 
     await Promise.all([loadMembers(), loadNonMembers()]);
+  };
+
+  const handleRemoveFromOtherSeason = async (
+    targetSeasonId: string,
+    profileId: string,
+    seasonName: string,
+  ) => {
+    if (!window.confirm(`להסיר את החייל מהעונה "${seasonName}"?`)) return;
+
+    setNonMembers((prev) =>
+      prev
+        .map((s) =>
+          s.profileId === profileId
+            ? { ...s, seasons: s.seasons.filter((sn) => sn.seasonId !== targetSeasonId) }
+            : s,
+        )
+        .filter((s) => s.seasons.length > 0),
+    );
+
+    const result = await removeExistingSoldierFromSeasonAction(seasonId, targetSeasonId, profileId);
+    if (result.error) await loadNonMembers();
   };
 
   useEffect(() => {
@@ -309,7 +331,7 @@ export function SoldiersContent({
                 key={soldier.profileId}
                 className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-700"
               >
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-1">
                   <span className="text-sm font-medium">{soldier.fullName}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {[
@@ -323,11 +345,30 @@ export function SoldiersContent({
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </span>
+                  {soldier.seasons.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {soldier.seasons.map((sn) => (
+                        <span
+                          key={sn.seasonId}
+                          className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        >
+                          {sn.seasonName}
+                          <button
+                            onClick={() => handleRemoveFromOtherSeason(sn.seasonId, soldier.profileId, sn.seasonName)}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            title={`הסר מ-${sn.seasonName}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => handleAddExistingSoldier(soldier.profileId)}
                   disabled={addingNonMember[soldier.profileId] === true}
-                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="shrink-0 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
                   {addingNonMember[soldier.profileId] ? "מוסיף..." : "הוסף לעונה"}
                 </button>

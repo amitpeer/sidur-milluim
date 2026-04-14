@@ -172,11 +172,17 @@ export async function setMemberRoleAction(
   return { success: true };
 }
 
+export type NonMemberSeason = {
+  seasonId: string;
+  seasonName: string;
+};
+
 export type NonMemberSoldier = {
   profileId: string;
   fullName: string;
   city: string | null;
   roles: string[];
+  seasons: NonMemberSeason[];
 };
 
 export async function getNonMemberSoldiersAction(
@@ -201,6 +207,9 @@ export async function getNonMemberSoldiersAction(
       fullName: true,
       city: true,
       roles: true,
+      seasonMembers: {
+        select: { season: { select: { id: true, name: true } } },
+      },
     },
     orderBy: { fullName: "asc" },
   });
@@ -210,7 +219,23 @@ export async function getNonMemberSoldiersAction(
     fullName: p.fullName,
     city: p.city,
     roles: p.roles,
+    seasons: p.seasonMembers.map((sm) => ({
+      seasonId: sm.season.id,
+      seasonName: sm.season.name,
+    })),
   }));
+}
+
+export async function removeExistingSoldierFromSeasonAction(
+  currentSeasonId: string,
+  targetSeasonId: string,
+  soldierProfileId: string,
+): Promise<SoldierActionState> {
+  const session = await requireSeasonAdmin(currentSeasonId);
+  if (!session) return { error: "אין הרשאה" };
+
+  await removeSeasonMember(targetSeasonId, soldierProfileId);
+  return { success: true };
 }
 
 export async function addExistingSoldierToSeasonAction(
