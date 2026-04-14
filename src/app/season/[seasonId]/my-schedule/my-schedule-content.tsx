@@ -10,7 +10,7 @@ import {
   saveConstraintChangesAction,
 } from "@/server/actions/constraint-actions";
 import { groupScheduleBySequence } from "@/domain/schedule/group-schedule-by-sequence";
-import { eachDayInRange, dateToString, parseServerDate } from "@/lib/date-utils";
+import { dateToString, parseServerDate } from "@/lib/date-utils";
 import { MonthCalendarGrid } from "@/components/month-calendar-grid";
 
 type ScheduleDay = NonNullable<Awaited<ReturnType<typeof getMyScheduleAction>>>[number];
@@ -208,7 +208,6 @@ function ConstraintsSection({
   const seasonEnd = parseServerDate(season.endDate);
   seasonStart.setUTCHours(0, 0, 0, 0);
   seasonEnd.setUTCHours(0, 0, 0, 0);
-  const days = eachDayInRange(seasonStart, seasonEnd);
 
   const hasPendingChanges = pendingAdds.size > 0 || pendingRemoves.size > 0;
   const totalAfterSave = constraints.length + pendingAdds.size - pendingRemoves.size;
@@ -234,7 +233,8 @@ function ConstraintsSection({
       )}
 
       <MonthCalendarGrid
-        days={days}
+        seasonStart={seasonStart}
+        seasonEnd={seasonEnd}
         getDayStatus={(dateStr) => {
           if (deadlinePassed) return "disabled";
           if (pendingRemoves.has(dateStr)) return "removing";

@@ -6,7 +6,7 @@ import {
   adminDeleteConstraintAction,
   adminAddConstraintAction,
 } from "@/server/actions/constraint-actions";
-import { dateToString, eachDayInRange, parseServerDate } from "@/lib/date-utils";
+import { dateToString, parseServerDate } from "@/lib/date-utils";
 import { MonthCalendarGrid } from "@/components/month-calendar-grid";
 
 type PageData = NonNullable<Awaited<ReturnType<typeof getAdminConstraintsPageDataAction>>>;
@@ -81,7 +81,6 @@ export function AdminConstraintsContent({ seasonId, initialData }: Props) {
   const seasonEnd = parseServerDate(seasonDates.endDate);
   seasonStart.setUTCHours(0, 0, 0, 0);
   seasonEnd.setUTCHours(0, 0, 0, 0);
-  const days = eachDayInRange(seasonStart, seasonEnd);
 
   const toggleExpanded = (soldierId: string) => {
     setExpandedSoldiers((prev) => {
@@ -202,7 +201,8 @@ export function AdminConstraintsContent({ seasonId, initialData }: Props) {
           </div>
           <p className="mb-2 text-xs text-zinc-500">בחר תאריכים:</p>
           <MonthCalendarGrid
-            days={days}
+            seasonStart={seasonStart}
+            seasonEnd={seasonEnd}
             getDayStatus={(dateStr) =>
               addDates.has(dateStr) ? "selected" : "default"
             }

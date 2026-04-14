@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { dateToString } from "@/lib/date-utils";
+import { dateToString, eachDayInRange } from "@/lib/date-utils";
 
 interface DayState {
   readonly dateStr: string;
@@ -10,7 +10,8 @@ interface DayState {
 }
 
 interface MonthCalendarGridProps {
-  readonly days: Date[];
+  readonly seasonStart: Date;
+  readonly seasonEnd: Date;
   readonly getDayStatus: (dateStr: string) => DayState["status"];
   readonly onDayClick: (dateStr: string, event: React.MouseEvent) => void;
 }
@@ -32,31 +33,53 @@ const MONTH_NAMES_HE: Record<number, string> = {
   11: "דצמבר",
 };
 
-function groupByMonth(days: Date[]): Array<{ key: string; days: Date[] }> {
-  const map = new Map<string, Date[]>();
-  for (const day of days) {
-    const key = `${day.getUTCFullYear()}-${day.getUTCMonth()}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(day);
+interface MonthData {
+  readonly year: number;
+  readonly month: number;
+  readonly days: Date[];
+}
+
+function buildFullMonths(seasonStart: Date, seasonEnd: Date): MonthData[] {
+  const startYear = seasonStart.getUTCFullYear();
+  const startMonth = seasonStart.getUTCMonth();
+  const endYear = seasonEnd.getUTCFullYear();
+  const endMonth = seasonEnd.getUTCMonth();
+
+  const months: MonthData[] = [];
+  let y = startYear;
+  let m = startMonth;
+
+  while (y < endYear || (y === endYear && m <= endMonth)) {
+    const firstDay = new Date(Date.UTC(y, m, 1));
+    const lastDay = new Date(Date.UTC(y, m + 1, 0));
+    months.push({ year: y, month: m, days: eachDayInRange(firstDay, lastDay) });
+
+    m++;
+    if (m > 11) {
+      m = 0;
+      y++;
+    }
   }
-  return [...map.entries()].map(([key, days]) => ({ key, days }));
+
+  return months;
 }
 
 export function MonthCalendarGrid({
-  days,
+  seasonStart,
+  seasonEnd,
   getDayStatus,
   onDayClick,
 }: MonthCalendarGridProps) {
-  const months = groupByMonth(days);
+  const months = buildFullMonths(seasonStart, seasonEnd);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   if (months.length === 0) return null;
 
-  const current = months[currentIndex];
-  const year = current.days[0].getUTCFullYear();
-  const month = current.days[0].getUTCMonth();
-  const label = `${MONTH_NAMES_HE[month]} ${year}`;
+  const startStr = dateToString(seasonStart);
+  const endStr = dateToString(seasonEnd);
 
+  const current = months[currentIndex];
+  const label = `${MONTH_NAMES_HE[current.month]} ${current.year}`;
   const hasMultipleMonths = months.length > 1;
 
   return (
@@ -101,7 +124,8 @@ export function MonthCalendarGrid({
         ))}
         {current.days.map((day, idx) => {
           const dateStr = dateToString(day);
-          const status = getDayStatus(dateStr);
+          const inRange = dateStr >= startStr && dateStr <= endStr;
+          const status = inRange ? getDayStatus(dateStr) : "disabled";
           const dayOfWeek = day.getUTCDay();
 
           return (
