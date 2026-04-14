@@ -46,12 +46,17 @@ export default function NewSeasonPage() {
           required
           errors={state.fieldErrors?.endDate}
         />
-        <Field
-          label='סיום אל"ת'
-          name="trainingEndDate"
-          type="date"
-          errors={state.fieldErrors?.trainingEndDate}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Field
+            label='יום אל"ת אחרון'
+            name="trainingEndDate"
+            type="date"
+            errors={state.fieldErrors?.trainingEndDate}
+          />
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            התאריך הזה עצמו עדיין נחשב אל&quot;ת. הסידור מתחיל ביום שאחריו.
+          </p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <Field
             label="כמה חיילים ביום"
