@@ -37,6 +37,80 @@ function groupBySoldier(constraints: Constraint[]): Map<string, SoldierGroup> {
   return groups;
 }
 
+const NOT_SUBMITTED_TRUNCATE_LIMIT = 10;
+
+function SubmissionOverview({
+  members,
+  activeConstraints,
+  showAll,
+  onToggleShowAll,
+}: {
+  readonly members: readonly Member[];
+  readonly activeConstraints: readonly Constraint[];
+  readonly showAll: boolean;
+  readonly onToggleShowAll: () => void;
+}) {
+  const submittedIds = new Set(activeConstraints.map((c) => c.soldierProfileId));
+  const submitted = members.filter((m) => submittedIds.has(m.soldierProfileId));
+  const notSubmitted = members.filter((m) => !submittedIds.has(m.soldierProfileId));
+
+  const visibleNotSubmitted =
+    showAll || notSubmitted.length <= NOT_SUBMITTED_TRUNCATE_LIMIT
+      ? notSubmitted
+      : notSubmitted.slice(0, NOT_SUBMITTED_TRUNCATE_LIMIT);
+  const hiddenCount = notSubmitted.length - visibleNotSubmitted.length;
+
+  return (
+    <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <h3 className="mb-3 text-sm font-medium">סטטוס הגשת אילוצים</h3>
+      <div className="mb-3 flex gap-4">
+        <div className="flex flex-col items-center rounded-lg bg-green-50 px-4 py-2 dark:bg-green-950">
+          <span className="text-lg font-bold text-green-700 dark:text-green-400">
+            {submitted.length}
+          </span>
+          <span className="text-xs text-green-600 dark:text-green-500">הגישו</span>
+        </div>
+        <div className="flex flex-col items-center rounded-lg bg-amber-50 px-4 py-2 dark:bg-amber-950">
+          <span className="text-lg font-bold text-amber-700 dark:text-amber-400">
+            {notSubmitted.length}
+          </span>
+          <span className="text-xs text-amber-600 dark:text-amber-500">לא הגישו</span>
+        </div>
+      </div>
+      {notSubmitted.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-zinc-500">לא הגישו:</p>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300">
+            {visibleNotSubmitted.map((m) => m.soldierProfile.fullName).join(", ")}
+            {hiddenCount > 0 && (
+              <>
+                {" "}
+                <button
+                  onClick={onToggleShowAll}
+                  className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  ...ועוד {hiddenCount}
+                </button>
+              </>
+            )}
+            {showAll && notSubmitted.length > NOT_SUBMITTED_TRUNCATE_LIMIT && (
+              <>
+                {" "}
+                <button
+                  onClick={onToggleShowAll}
+                  className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  הצג פחות
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   readonly seasonId: string;
   readonly initialData?: PageData;
@@ -51,6 +125,7 @@ export function AdminConstraintsContent({ seasonId, initialData }: Props) {
   const [addSoldierId, setAddSoldierId] = useState("");
   const [addDates, setAddDates] = useState<Set<string>>(new Set());
   const [expandedSoldiers, setExpandedSoldiers] = useState<Set<string>>(new Set());
+  const [showAllNotSubmitted, setShowAllNotSubmitted] = useState(false);
 
   const load = async () => {
     const data = await getAdminConstraintsPageDataAction(seasonId);
@@ -111,6 +186,13 @@ export function AdminConstraintsContent({ seasonId, initialData }: Props) {
     <div className="mx-auto max-w-4xl p-6">
       <h2 className="mb-6 text-xl font-semibold">ניהול אילוצים</h2>
       <p className="mb-4 text-sm text-zinc-500">{activeConstraints.length} אילוצים סה״כ</p>
+
+      <SubmissionOverview
+        members={members}
+        activeConstraints={activeConstraints}
+        showAll={showAllNotSubmitted}
+        onToggleShowAll={() => setShowAllNotSubmitted((prev) => !prev)}
+      />
 
       {sortedSoldierIds.length === 0 && !showAddPanel && (
         <p className="text-zinc-400">אין אילוצים עדיין.</p>
