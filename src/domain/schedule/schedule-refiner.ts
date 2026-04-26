@@ -524,6 +524,10 @@ function isValidCrossGroupSwap(
     return false;
   }
 
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+    return false;
+  }
+
   if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
     return false;
   }
@@ -556,6 +560,10 @@ function isValidFairnessSwap(
 
   const dayIdx = opDayStrs.indexOf(move.dayStr);
   if (dayIdx === -1) return false;
+
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+    return false;
+  }
 
   if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
     return false;
@@ -613,6 +621,10 @@ function isValidSwapMove(
 
   // Removing soldier shouldn't create a block shorter than minBlock
   if (wouldCreateShortBlock(move.removeId, dayIdx, daySlots, opDayStrs, minBlock)) {
+    return false;
+  }
+
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
     return false;
   }
 
@@ -675,6 +687,11 @@ function isValidTransferMove(
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.toDayStr}`)) return false;
 
+  const fromDayIdx = opDayStrs.indexOf(move.fromDayStr);
+  if (fromDayIdx !== -1 && wouldRemovalShrinkGapBelowMin(move.removeId, fromDayIdx, daySlots, opDayStrs, hardMinGap)) {
+    return false;
+  }
+
   const dayIdx = opDayStrs.indexOf(move.toDayStr);
   if (dayIdx === -1) return false;
 
@@ -734,6 +751,35 @@ function wouldShrinkGapBelowMin(
   if (rightBounded && rightGap > 0 && rightGap < hardMinGap) return true;
 
   return false;
+}
+
+function wouldRemovalShrinkGapBelowMin(
+  soldierId: string,
+  removeDayIdx: number,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+  hardMinGap: number,
+): boolean {
+  let leftBlockEnd = -1;
+  for (let i = removeDayIdx - 1; i >= 0; i--) {
+    if (daySlots.get(opDayStrs[i])?.has(soldierId)) {
+      leftBlockEnd = i;
+      break;
+    }
+  }
+
+  let rightBlockStart = -1;
+  for (let i = removeDayIdx + 1; i < opDayStrs.length; i++) {
+    if (daySlots.get(opDayStrs[i])?.has(soldierId)) {
+      rightBlockStart = i;
+      break;
+    }
+  }
+
+  if (leftBlockEnd === -1 || rightBlockStart === -1) return false;
+
+  const gapLength = rightBlockStart - leftBlockEnd - 1;
+  return gapLength < hardMinGap;
 }
 
 function applyMove(
