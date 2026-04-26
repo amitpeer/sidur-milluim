@@ -59,6 +59,7 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
   const hardMax = season.avgDaysArmy != null
     ? Math.min(season.avgDaysArmy + 5, 10)
     : null;
+  const hardMinGap = 3;
   const minBlock = Math.min(4, season.avgDaysArmy ?? 7);
   const targetGap = season.avgDaysHome ?? 7;
   const headcount = season.dailyHeadcount;
@@ -94,10 +95,10 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
     }
 
     const valid = move && (isFairness
-      ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, constraintSet)
+      ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet)
       : isCrossGroup
-        ? isValidCrossGroupSwap(move as SwapMove, daySlots, opDayStrs, hardMax, constraintSet, minBlock)
-        : isValidMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock));
+        ? isValidCrossGroupSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock)
+        : isValidMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock));
 
     if (valid && move) {
       applyMove(move, daySlots, soldierDays);
@@ -510,6 +511,7 @@ function isValidCrossGroupSwap(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMax: number | null,
+  hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
 ): boolean {
@@ -519,6 +521,10 @@ function isValidCrossGroupSwap(
   if (dayIdx === -1) return false;
 
   if (wouldCreateShortBlock(move.removeId, dayIdx, daySlots, opDayStrs, minBlock)) {
+    return false;
+  }
+
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
     return false;
   }
 
@@ -543,14 +549,19 @@ function isValidFairnessSwap(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMax: number | null,
+  hardMinGap: number,
   constraintSet: Set<string>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
 
-  if (hardMax !== null) {
-    const dayIdx = opDayStrs.indexOf(move.dayStr);
-    if (dayIdx === -1) return false;
+  const dayIdx = opDayStrs.indexOf(move.dayStr);
+  if (dayIdx === -1) return false;
 
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+    return false;
+  }
+
+  if (hardMax !== null) {
     let streak = 1;
     for (let i = dayIdx - 1; i >= 0; i--) {
       if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
@@ -571,13 +582,14 @@ function isValidMove(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMax: number | null,
+  hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
 ): boolean {
   if (move.type === "swap") {
-    return isValidSwapMove(move, daySlots, opDayStrs, hardMax, constraintSet, minBlock);
+    return isValidSwapMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock);
   }
-  return isValidTransferMove(move, daySlots, opDayStrs, hardMax, constraintSet);
+  return isValidTransferMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet);
 }
 
 function isValidSwapMove(
@@ -585,6 +597,7 @@ function isValidSwapMove(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMax: number | null,
+  hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
 ): boolean {
@@ -600,6 +613,10 @@ function isValidSwapMove(
 
   // Removing soldier shouldn't create a block shorter than minBlock
   if (wouldCreateShortBlock(move.removeId, dayIdx, daySlots, opDayStrs, minBlock)) {
+    return false;
+  }
+
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
     return false;
   }
 
@@ -653,14 +670,19 @@ function isValidTransferMove(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMax: number | null,
+  hardMinGap: number,
   constraintSet: Set<string>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.toDayStr}`)) return false;
 
-  if (hardMax !== null) {
-    const dayIdx = opDayStrs.indexOf(move.toDayStr);
-    if (dayIdx === -1) return false;
+  const dayIdx = opDayStrs.indexOf(move.toDayStr);
+  if (dayIdx === -1) return false;
 
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+    return false;
+  }
+
+  if (hardMax !== null) {
     let streak = 1;
     for (let i = dayIdx - 1; i >= 0; i--) {
       if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
@@ -674,6 +696,43 @@ function isValidTransferMove(
   }
 
   return true;
+}
+
+function wouldShrinkGapBelowMin(
+  soldierId: string,
+  addDayIdx: number,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+  hardMinGap: number,
+): boolean {
+  // If the soldier is already on-base on an adjacent day, this extends a block — no gap shrunk
+  const adjLeft = addDayIdx > 0 && daySlots.get(opDayStrs[addDayIdx - 1])?.has(soldierId);
+  const adjRight = addDayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[addDayIdx + 1])?.has(soldierId);
+  if (adjLeft || adjRight) return false;
+
+  // Soldier is off-base on both sides — placing them here splits a gap into two
+  // Measure the gap to the left (distance to nearest on-base day)
+  let leftGap = 0;
+  for (let i = addDayIdx - 1; i >= 0; i--) {
+    if (daySlots.get(opDayStrs[i])?.has(soldierId)) break;
+    leftGap++;
+  }
+
+  // Measure the gap to the right
+  let rightGap = 0;
+  for (let i = addDayIdx + 1; i < opDayStrs.length; i++) {
+    if (daySlots.get(opDayStrs[i])?.has(soldierId)) break;
+    rightGap++;
+  }
+
+  // Each resulting gap must be at least hardMinGap (unless it reaches the edge)
+  const leftHitsEdge = addDayIdx - leftGap === 0;
+  const rightHitsEdge = addDayIdx + rightGap === opDayStrs.length - 1;
+
+  if (!leftHitsEdge && leftGap > 0 && leftGap < hardMinGap) return true;
+  if (!rightHitsEdge && rightGap > 0 && rightGap < hardMinGap) return true;
+
+  return false;
 }
 
 function applyMove(

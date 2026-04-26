@@ -6,6 +6,7 @@ import { dateToString, addDays } from "@/lib/date-utils";
 const ADJACENCY_BONUS = 30;
 const CITY_COHESION_BONUS = 3;
 const HARD_MAX_BUFFER = 5;
+const HARD_MIN_GAP = 3;
 
 interface SuggestInput {
   readonly unavailableSoldierId: string;
@@ -66,12 +67,14 @@ export function suggestReplacements(
     }
   }
 
+  const hardMax = deriveHardMax(avgDaysArmy);
   const candidates = soldiers.filter(
     (s) =>
       s.id !== unavailableSoldierId &&
       !constraintSet.has(s.id) &&
       !assignedOnDay.has(s.id) &&
-      !wouldExceedMaxConsecutive(s.id, date, assignments, deriveHardMax(avgDaysArmy)),
+      !wouldExceedMaxConsecutive(s.id, date, assignments, hardMax) &&
+      !wouldShrinkGapBelowMin(s.id, date, assignments, HARD_MIN_GAP),
   );
 
   const scored: ReplacementSuggestion[] = candidates.map((s) => {
@@ -155,6 +158,48 @@ function wouldExceedMaxConsecutive(
   }
 
   return streak > hardMax;
+}
+
+function wouldShrinkGapBelowMin(
+  soldierId: string,
+  date: Date,
+  assignments: readonly ScheduleAssignment[],
+  hardMinGap: number,
+): boolean {
+  const onBaseDates = new Set<string>();
+  for (const a of assignments) {
+    if (a.soldierProfileId === soldierId && a.isOnBase) {
+      onBaseDates.add(dateToString(a.date));
+    }
+  }
+
+  // If adjacent to an existing block, this extends it — no gap is shrunk
+  const prevStr = dateToString(addDays(date, -1));
+  const nextStr = dateToString(addDays(date, 1));
+  if (onBaseDates.has(prevStr) || onBaseDates.has(nextStr)) return false;
+
+  // Measure gap to nearest on-base day on each side
+  let leftGap = 0;
+  let d = addDays(date, -1);
+  while (!onBaseDates.has(dateToString(d))) {
+    leftGap++;
+    d = addDays(d, -1);
+    if (leftGap >= hardMinGap) break;
+  }
+
+  let rightGap = 0;
+  d = addDays(date, 1);
+  while (!onBaseDates.has(dateToString(d))) {
+    rightGap++;
+    d = addDays(d, 1);
+    if (rightGap >= hardMinGap) break;
+  }
+
+  // Only check gaps that are bounded by an on-base day (not open-ended)
+  if (leftGap < hardMinGap && onBaseDates.has(dateToString(addDays(date, -(leftGap + 1))))) return true;
+  if (rightGap < hardMinGap && onBaseDates.has(dateToString(addDays(date, rightGap + 1)))) return true;
+
+  return false;
 }
 
 function hasAdjacentAssignment(
