@@ -86,6 +86,14 @@ async function exportCurrentSchedule(
     trainingEndDate: seasonConfig.trainingEndDate,
   });
   await createSheetExport(seasonId, url, userId, asDraft ? { isActive: false } : undefined);
+
+  const spreadsheetId = extractSpreadsheetId(url);
+  if (spreadsheetId) {
+    const members = await getSeasonMembers(seasonId);
+    const admins = members.filter((m) => m.role === "admin");
+    await shareWithMembers(spreadsheetId, admins);
+  }
+
   return { url };
 }
 
