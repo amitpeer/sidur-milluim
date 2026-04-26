@@ -195,7 +195,7 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
 
       if (
         pos < soldierOnDuration &&
-        hasMinGapSinceLastBlock(soldier.id, dayIdx, result, operationalDays) &&
+        hasMinGapSinceLastBlock(soldier.id, dayIdx, result, operationalDays, trailingTrainingStreak) &&
         !wouldExceedMaxConsecutive(soldier.id, dayIdx, result, operationalDays, trailingTrainingStreak)
       ) {
         rawOnBase.add(soldier.id);
@@ -380,7 +380,7 @@ function capExcessDrivers(
       !onBase.has(s.id) &&
       !isConstrained(s.id, dateStr, constraintSet) &&
       !s.roles.includes("driver" as SoldierRole) &&
-      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak) &&
       !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
     )
     .sort((a, b) => {
@@ -450,7 +450,7 @@ function padToHeadcount(
         !result.has(s.id) &&
         !isConstrained(s.id, dateStr, constraintSet) &&
         s.roles.some((r) => neededRoles.includes(r)) &&
-        hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+        hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak) &&
         !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
       )
       .sort((a, b) => {
@@ -471,7 +471,7 @@ function padToHeadcount(
     .filter((s) =>
       !result.has(s.id) &&
       !isConstrained(s.id, dateStr, constraintSet) &&
-      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak) &&
       !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
     )
     .sort((a, b) => {
@@ -520,7 +520,7 @@ function fixRolesAtHeadcount(
           s.roles.includes(role) &&
           !result.has(s.id) &&
           !isConstrained(s.id, dateStr, constraintSet) &&
-          hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+          hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak) &&
           !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
         )
         .sort((a, b) => {
@@ -644,17 +644,27 @@ function hasMinGapSinceLastBlock(
   dayIdx: number,
   previousSlots: Map<string, Set<string>>,
   operationalDays: readonly Date[],
+  trailingTrainingStreak: Map<string, number>,
 ): boolean {
   // If the soldier was on-base yesterday, this extends their block — always OK
   if (dayIdx > 0) {
     const prevStr = dateToString(operationalDays[dayIdx - 1]);
     if (previousSlots.get(prevStr)?.has(soldierId)) return true;
   }
+  // Adjacent to training block — extends it
+  if (dayIdx === 0 && (trailingTrainingStreak.get(soldierId) ?? 0) > 0) {
+    return true;
+  }
 
   // Check that the soldier has been off for at least HARD_MIN_GAP days
   for (let i = 1; i <= HARD_MIN_GAP && dayIdx - i >= 0; i++) {
     const ds = dateToString(operationalDays[dayIdx - i]);
     if (previousSlots.get(ds)?.has(soldierId)) return false;
+  }
+
+  // If we didn't check enough days back and training streak exists, gap is too short
+  if (dayIdx < HARD_MIN_GAP && (trailingTrainingStreak.get(soldierId) ?? 0) > 0) {
+    return false;
   }
 
   return true;

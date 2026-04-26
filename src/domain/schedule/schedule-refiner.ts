@@ -544,11 +544,11 @@ function isValidCrossGroupSwap(
     return false;
   }
 
-  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
-  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
@@ -575,11 +575,11 @@ function isValidFairnessSwap(
   const dayIdx = opDayStrs.indexOf(move.dayStr);
   if (dayIdx === -1) return false;
 
-  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
-  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
@@ -633,11 +633,11 @@ function isValidSwapMove(
     return false;
   }
 
-  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldRemovalShrinkGapBelowMin(move.removeId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
-  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
@@ -691,14 +691,14 @@ function isValidTransferMove(
   if (constraintSet.has(`${move.addId}:${move.toDayStr}`)) return false;
 
   const fromDayIdx = opDayStrs.indexOf(move.fromDayStr);
-  if (fromDayIdx !== -1 && wouldRemovalShrinkGapBelowMin(move.removeId, fromDayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (fromDayIdx !== -1 && wouldRemovalShrinkGapBelowMin(move.removeId, fromDayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
   const dayIdx = opDayStrs.indexOf(move.toDayStr);
   if (dayIdx === -1) return false;
 
-  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap)) {
+  if (wouldShrinkGapBelowMin(move.addId, dayIdx, daySlots, opDayStrs, hardMinGap, trainingStreak)) {
     return false;
   }
 
@@ -717,6 +717,7 @@ function wouldShrinkGapBelowMin(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMinGap: number,
+  trainingStreak: Map<string, number>,
 ): boolean {
   // Find the edges of the block that would form after placing the soldier
   let leftEdge = addDayIdx;
@@ -734,8 +735,10 @@ function wouldShrinkGapBelowMin(
     if (daySlots.get(opDayStrs[i])?.has(soldierId)) break;
     leftGap++;
   }
-  const leftBounded = leftEdge - 1 - leftGap >= 0;
-  if (leftBounded && leftGap > 0 && leftGap < hardMinGap) return true;
+  const leftBoundedByOp = leftEdge - 1 - leftGap >= 0;
+  const leftBoundedByTraining = !leftBoundedByOp && leftEdge > 0
+    && (trainingStreak.get(soldierId) ?? 0) > 0;
+  if ((leftBoundedByOp || leftBoundedByTraining) && leftGap > 0 && leftGap < hardMinGap) return true;
 
   // Measure gap to the right of the resulting block
   let rightGap = 0;
@@ -778,6 +781,7 @@ function wouldRemovalShrinkGapBelowMin(
   daySlots: Map<string, Set<string>>,
   opDayStrs: readonly string[],
   hardMinGap: number,
+  trainingStreak: Map<string, number>,
 ): boolean {
   let leftBlockEnd = -1;
   for (let i = removeDayIdx - 1; i >= 0; i--) {
@@ -795,9 +799,12 @@ function wouldRemovalShrinkGapBelowMin(
     }
   }
 
-  if (leftBlockEnd === -1 || rightBlockStart === -1) return false;
+  const hasLeftBlock = leftBlockEnd >= 0
+    || (trainingStreak.get(soldierId) ?? 0) > 0;
+  if (!hasLeftBlock || rightBlockStart === -1) return false;
 
-  const gapLength = rightBlockStart - leftBlockEnd - 1;
+  const effectiveLeftEnd = leftBlockEnd >= 0 ? leftBlockEnd : -1;
+  const gapLength = rightBlockStart - effectiveLeftEnd - 1;
   return gapLength < hardMinGap;
 }
 
