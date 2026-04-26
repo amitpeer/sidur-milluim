@@ -34,7 +34,7 @@ export async function createSheetExport(
   userId: string,
   options?: { isActive?: boolean },
 ): Promise<void> {
-  const shouldActivate = options?.isActive ?? true;
+  const shouldActivate = options?.isActive ?? false;
 
   const lastExport = await prisma.sheetExport.findFirst({
     where: { seasonId },
