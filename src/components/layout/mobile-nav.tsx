@@ -13,7 +13,7 @@ const LEFT_ITEMS = [
 ] as const;
 
 const RIGHT_ITEMS = [
-  { path: "transitions", label: "כניסות", icon: "arrows" },
+  { path: "transitions", label: "דמבו", icon: "arrows" },
   { path: "profile", label: "פרופיל", icon: "profile" },
 ] as const;
 

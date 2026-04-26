@@ -37,7 +37,7 @@ export default async function SeasonLayout({
   const soldierNav = [
     { href: `/season/${seasonId}/board`, label: "בית" },
     { href: `/season/${seasonId}/my-schedule`, label: "הסידור שלי" },
-    { href: `/season/${seasonId}/transitions`, label: "כניסות/יציאות" },
+    { href: `/season/${seasonId}/transitions`, label: "דמבו" },
     { href: `/season/${seasonId}/profile`, label: "הפרופיל שלי" },
   ];
 

@@ -97,7 +97,7 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">כניסות ויציאות</h2>
+        <h2 className="text-xl font-semibold">דמבו</h2>
         <div className="flex items-center gap-2">
           <select
             value={daysAhead}

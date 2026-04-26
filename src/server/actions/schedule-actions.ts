@@ -4,6 +4,7 @@ import { getApprovedSession } from "@/server/auth/approval";
 import {
   getSeasonById,
   getSeasonDates,
+  getSeasonConfig,
 } from "@/server/db/stores/season-store";
 import {
   getConstraintsForSeason,
@@ -256,10 +257,12 @@ export interface SoldierStats {
   fullName: string;
   daysInArmy: number;
   totalDaysOff: number;
+  totalDaysAtHome: number;
   daysAtHome: number;
   constraintDaysOff: number;
   sickDays: number;
   courseDays: number;
+  onDutyPercentage: number;
 }
 
 export interface StatsResult {
@@ -275,19 +278,26 @@ export async function getSoldierStatsAction(
   const session = await getApprovedSession();
   if (!session) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
 
-  const [seasonDates, version, constraints, activeSheet] = await Promise.all([
-    getSeasonDates(seasonId),
+  const [seasonConfig, version, constraints, activeSheet] = await Promise.all([
+    getSeasonConfig(seasonId),
     getActiveScheduleVersion(seasonId),
     getConstraintsForSeason(seasonId),
     getActiveSheetExport(seasonId),
   ]);
-  if (!seasonDates || !version) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
+  if (!seasonConfig || !version) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
 
-  const start = new Date(seasonDates.startDate);
-  const end = new Date(seasonDates.endDate);
+  const start = new Date(seasonConfig.startDate);
+  const end = new Date(seasonConfig.endDate);
   start.setUTCHours(0, 0, 0, 0);
   end.setUTCHours(0, 0, 0, 0);
   const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  const opStart = seasonConfig.trainingEndDate
+    ? new Date(new Date(seasonConfig.trainingEndDate).setUTCHours(0, 0, 0, 0) + 86400000)
+    : start;
+  const totalOperationalDays = opStart <= end
+    ? Math.round((end.getTime() - opStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
 
   const constraintCounts = new Map<string, number>();
   const constraintKeySet = new Set<string>();
@@ -300,13 +310,16 @@ export async function getSoldierStatsAction(
   }
 
   const onBaseCounts = new Map<string, number>();
+  const operationalOnBaseCounts = new Map<string, number>();
   const sickCounts = new Map<string, number>();
   const courseCounts = new Map<string, number>();
   const soldierNames = new Map<string, string>();
   const seen = new Set<string>();
   for (const a of version.assignments) {
     soldierNames.set(a.soldierProfile.id, a.soldierProfile.fullName);
-    const dateStr = dateToString(new Date(a.date));
+    const d = new Date(a.date);
+    d.setUTCHours(0, 0, 0, 0);
+    const dateStr = dateToString(d);
     const key = `${a.soldierProfileId}-${dateStr}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -317,6 +330,9 @@ export async function getSoldierStatsAction(
       courseCounts.set(a.soldierProfileId, (courseCounts.get(a.soldierProfileId) ?? 0) + 1);
     } else if (a.isOnBase && !isConstraintDay) {
       onBaseCounts.set(a.soldierProfileId, (onBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
+      if (d >= opStart) {
+        operationalOnBaseCounts.set(a.soldierProfileId, (operationalOnBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
+      }
     }
   }
 
@@ -330,7 +346,12 @@ export async function getSoldierStatsAction(
       const daysInArmy = daysOnBase + courseDays;
       const daysAtHome = totalDays - daysInArmy - constraintDaysOff;
       const totalDaysOff = daysAtHome + constraintDaysOff;
-      return { id, fullName, daysInArmy, totalDaysOff, daysAtHome, constraintDaysOff, sickDays, courseDays };
+      const totalDaysAtHome = totalDaysOff;
+      const operationalOnBase = operationalOnBaseCounts.get(id) ?? 0;
+      const onDutyPercentage = totalOperationalDays > 0
+        ? Math.round((operationalOnBase / totalOperationalDays) * 100)
+        : 0;
+      return { id, fullName, daysInArmy, totalDaysOff, totalDaysAtHome, daysAtHome, constraintDaysOff, sickDays, courseDays, onDutyPercentage };
     });
 
   return {

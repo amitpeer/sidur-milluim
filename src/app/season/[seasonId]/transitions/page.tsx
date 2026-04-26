@@ -20,7 +20,7 @@ export default async function TransitionsPage({ params }: Props) {
 
   if (data.assignments.length === 0) {
     return (
-      <div className="p-6 text-zinc-500">אין כניסות ויציאות לתאריכים הקרובים.</div>
+      <div className="p-6 text-zinc-500">אין נתוני דמבו לתאריכים הקרובים.</div>
     );
   }
 

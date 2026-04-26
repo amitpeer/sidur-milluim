@@ -122,7 +122,7 @@ export function suggestReplacements(
 
 function deriveHardMax(avgDaysArmy: number | null | undefined): number | null {
   if (avgDaysArmy == null) return null;
-  return avgDaysArmy + HARD_MAX_BUFFER;
+  return Math.min(avgDaysArmy + HARD_MAX_BUFFER, 10);
 }
 
 function wouldExceedMaxConsecutive(

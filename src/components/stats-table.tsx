@@ -5,7 +5,7 @@ import type { SoldierStats } from "@/server/actions/schedule-actions";
 
 type SortField = keyof Pick<
   SoldierStats,
-  "fullName" | "daysInArmy" | "daysAtHome" | "constraintDaysOff" | "sickDays" | "courseDays"
+  "fullName" | "daysInArmy" | "daysAtHome" | "constraintDaysOff" | "totalDaysAtHome" | "sickDays" | "courseDays" | "onDutyPercentage"
 >;
 
 type SortDirection = "asc" | "desc";
@@ -19,8 +19,10 @@ const COLUMNS: readonly {
   { field: "daysInArmy", label: "בצבא", colorClass: "text-green-700 dark:text-green-300", bgClass: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" },
   { field: "daysAtHome", label: "בבית (רוטציה)", colorClass: "text-zinc-500", bgClass: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
   { field: "constraintDaysOff", label: "בבית (אילוץ)", colorClass: "text-red-600 dark:text-red-300", bgClass: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200" },
+  { field: "totalDaysAtHome", label: "סה״כ בבית", colorClass: "text-teal-600 dark:text-teal-300", bgClass: "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200" },
   { field: "sickDays", label: "מחלה", colorClass: "text-amber-700 dark:text-amber-300", bgClass: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
   { field: "courseDays", label: "קורס", colorClass: "text-blue-600 dark:text-blue-300", bgClass: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" },
+  { field: "onDutyPercentage", label: "% תורנות", colorClass: "text-purple-600 dark:text-purple-300", bgClass: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200" },
 ];
 
 interface StatsTableProps {
@@ -112,7 +114,7 @@ export function StatsTable({ stats, versionDate, sheetVersionNumber, lastSyncedA
                 <td className="px-3 py-2 font-medium">{s.fullName}</td>
                 {COLUMNS.map((col) => (
                   <td key={col.field} className={`px-2 py-2 text-center ${col.colorClass}`}>
-                    {s[col.field]}
+                    {col.field === "onDutyPercentage" ? `${s[col.field]}%` : s[col.field]}
                   </td>
                 ))}
               </tr>
