@@ -115,8 +115,11 @@ export async function getMyScheduleAction(seasonId: string) {
   const session = await getApprovedSession();
   if (!session) return null;
 
-  const profile = await getSoldierProfile(session.user.id);
-  if (!profile) return null;
+  const [profile, activeSheet] = await Promise.all([
+    getSoldierProfile(session.user.id),
+    getActiveSheetExport(seasonId),
+  ]);
+  if (!profile || !activeSheet) return null;
 
   const [myAssignments, seasonDates, myConstraints] = await Promise.all([
     getAssignmentsForSoldier(seasonId, profile.id),
