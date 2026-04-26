@@ -34,6 +34,14 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
     assignments.find((a) => a.soldierProfileId === id)?.soldierProfile
       .fullName ?? id;
 
+  const sortByFamilyName = (names: string[]) =>
+    names.sort((a, b) => {
+      const aFamily = a.split(" ").slice(-1)[0];
+      const bFamily = b.split(" ").slice(-1)[0];
+      const cmp = aFamily.localeCompare(bFamily, "he");
+      return cmp !== 0 ? cmp : a.localeCompare(b, "he");
+    });
+
   const formatDayOfWeek = (d: Date) =>
     d.toLocaleDateString("he-IL", { weekday: "long" });
 
@@ -59,8 +67,8 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
     const prevSet = getSoldiersOnDate(prevStr);
     const daySet = getSoldiersOnDate(dayStr);
 
-    const arriving = [...daySet].filter((id) => !prevSet.has(id)).map(getName);
-    const leaving = [...prevSet].filter((id) => !daySet.has(id)).map(getName);
+    const arriving = sortByFamilyName([...daySet].filter((id) => !prevSet.has(id)).map(getName));
+    const leaving = sortByFamilyName([...prevSet].filter((id) => !daySet.has(id)).map(getName));
 
     const dayOfWeek = formatDayOfWeek(day);
     const shortDate = formatShortDate(day);
