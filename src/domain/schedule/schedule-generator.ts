@@ -36,6 +36,7 @@ interface RotationConfig {
   readonly farAwayExtraDays: number;
   readonly cityGroupingEnabled: boolean;
   readonly rng: { next: () => number; shuffle: <T>(arr: T[]) => T[] };
+  readonly trailingTrainingStreak: Map<string, number>;
 }
 
 export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
@@ -105,6 +106,17 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
   const targetBlock = season.avgDaysArmy ?? DEFAULT_AVG_ARMY;
   const targetGap = season.avgDaysHome ?? DEFAULT_AVG_HOME;
 
+  const trailingTrainingStreak = new Map<string, number>();
+  for (const soldier of soldiers) {
+    let streak = 0;
+    for (let i = trainingDays.length - 1; i >= 0; i--) {
+      const ds = dateToString(trainingDays[i]);
+      if (daySlots.get(ds)?.has(soldier.id)) streak++;
+      else break;
+    }
+    if (streak > 0) trailingTrainingStreak.set(soldier.id, streak);
+  }
+
   const rotationSlots = buildRotationTemplate({
     soldiers,
     operationalDays,
@@ -117,6 +129,7 @@ export function generateSchedule(input: GenerateInput): ScheduleAssignment[] {
     farAwayExtraDays: season.farAwayExtraDays ?? 0,
     cityGroupingEnabled: season.cityGroupingEnabled,
     rng,
+    trailingTrainingStreak,
   });
 
   for (const day of operationalDays) {
@@ -143,7 +156,7 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
   const {
     soldiers, operationalDays, headcount, targetBlock, targetGap,
     constraintSet, soldierDays, roleMinimums, farAwayExtraDays,
-    cityGroupingEnabled, rng,
+    cityGroupingEnabled, rng, trailingTrainingStreak,
   } = config;
 
   const cycle = targetBlock + targetGap;
@@ -183,7 +196,7 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
       if (
         pos < soldierOnDuration &&
         hasMinGapSinceLastBlock(soldier.id, dayIdx, result, operationalDays) &&
-        !wouldExceedMaxConsecutive(soldier.id, dayIdx, result, operationalDays)
+        !wouldExceedMaxConsecutive(soldier.id, dayIdx, result, operationalDays, trailingTrainingStreak)
       ) {
         rawOnBase.add(soldier.id);
       }
@@ -195,15 +208,15 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
     );
     const capped = capExcessDrivers(
       trimmed, localDays, soldiers, dateStr,
-      constraintSet, roleMinimums, result, dayIdx, operationalDays,
+      constraintSet, roleMinimums, result, dayIdx, operationalDays, trailingTrainingStreak,
     );
     const padded = padToHeadcount(
       capped, headcount, localDays, soldiers, dateStr,
-      constraintSet, roleMinimums, result, dayIdx, operationalDays,
+      constraintSet, roleMinimums, result, dayIdx, operationalDays, trailingTrainingStreak,
     );
     const fixed = fixRolesAtHeadcount(
       padded, localDays, soldiers, dateStr, constraintSet,
-      soldiersById, roleEntries, result, dayIdx, operationalDays,
+      soldiersById, roleEntries, result, dayIdx, operationalDays, trailingTrainingStreak,
     );
 
     for (const sid of fixed) {
@@ -334,6 +347,7 @@ function capExcessDrivers(
   previousSlots: Map<string, Set<string>>,
   dayIdx: number,
   operationalDays: readonly Date[],
+  trailingTrainingStreak: Map<string, number>,
 ): Set<string> {
   const driverMin = (roleMinimums as Record<string, number>)["driver"] ?? 0;
   if (driverMin === 0) return onBase;
@@ -367,7 +381,7 @@ function capExcessDrivers(
       !isConstrained(s.id, dateStr, constraintSet) &&
       !s.roles.includes("driver" as SoldierRole) &&
       hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
-      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
+      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
     )
     .sort((a, b) => {
       const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -416,6 +430,7 @@ function padToHeadcount(
   previousSlots: Map<string, Set<string>>,
   dayIdx: number,
   operationalDays: readonly Date[],
+  trailingTrainingStreak: Map<string, number>,
 ): Set<string> {
   if (currentOnBase.size >= headcount) return currentOnBase;
 
@@ -436,7 +451,7 @@ function padToHeadcount(
         !isConstrained(s.id, dateStr, constraintSet) &&
         s.roles.some((r) => neededRoles.includes(r)) &&
         hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
-        !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
+        !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
       )
       .sort((a, b) => {
         const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -457,7 +472,7 @@ function padToHeadcount(
       !result.has(s.id) &&
       !isConstrained(s.id, dateStr, constraintSet) &&
       hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
-      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
+      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
     )
     .sort((a, b) => {
       const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -485,6 +500,7 @@ function fixRolesAtHeadcount(
   previousSlots: Map<string, Set<string>>,
   dayIdx: number,
   operationalDays: readonly Date[],
+  trailingTrainingStreak: Map<string, number>,
 ): Set<string> {
   if (roleEntries.length === 0) return onBase;
 
@@ -505,7 +521,7 @@ function fixRolesAtHeadcount(
           !result.has(s.id) &&
           !isConstrained(s.id, dateStr, constraintSet) &&
           hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
-          !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
+          !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays, trailingTrainingStreak),
         )
         .sort((a, b) => {
           const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -606,12 +622,19 @@ function wouldExceedMaxConsecutive(
   dayIdx: number,
   previousSlots: Map<string, Set<string>>,
   operationalDays: readonly Date[],
+  trailingTrainingStreak: Map<string, number>,
 ): boolean {
   let streak = 0;
-  for (let i = dayIdx - 1; i >= 0; i--) {
+  let i = dayIdx - 1;
+  while (i >= 0) {
     const ds = dateToString(operationalDays[i]);
-    if (previousSlots.get(ds)?.has(soldierId)) streak++;
-    else break;
+    if (previousSlots.get(ds)?.has(soldierId)) {
+      streak++;
+      i--;
+    } else break;
+  }
+  if (i < 0) {
+    streak += trailingTrainingStreak.get(soldierId) ?? 0;
   }
   return streak >= HARD_MAX_CONSECUTIVE;
 }

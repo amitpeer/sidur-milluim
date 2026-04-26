@@ -56,6 +56,25 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
   const daySlots = buildDaySlots(input.assignments, opDayStrs);
   const soldierDays = buildSoldierDays(soldierIds, daySlots);
 
+  const trainingStreak = new Map<string, number>();
+  if (season.trainingEndDate) {
+    const trainingDayStrs = days
+      .filter((d) => d <= season.trainingEndDate!)
+      .map(dateToString);
+    const onBaseSet = new Set<string>();
+    for (const a of input.assignments) {
+      if (a.isOnBase) onBaseSet.add(`${a.soldierProfileId}:${dateToString(a.date)}`);
+    }
+    for (const sid of soldierIds) {
+      let streak = 0;
+      for (let i = trainingDayStrs.length - 1; i >= 0; i--) {
+        if (onBaseSet.has(`${sid}:${trainingDayStrs[i]}`)) streak++;
+        else break;
+      }
+      if (streak > 0) trainingStreak.set(sid, streak);
+    }
+  }
+
   const hardMax = season.avgDaysArmy != null
     ? Math.min(season.avgDaysArmy + 5, 10)
     : 10;
@@ -95,10 +114,10 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
     }
 
     const valid = move && (isFairness
-      ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet)
+      ? isValidFairnessSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, trainingStreak)
       : isCrossGroup
-        ? isValidCrossGroupSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock)
-        : isValidMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock));
+        ? isValidCrossGroupSwap(move as SwapMove, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock, trainingStreak)
+        : isValidMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock, trainingStreak));
 
     if (valid && move) {
       applyMove(move, daySlots, soldierDays);
@@ -514,6 +533,7 @@ function isValidCrossGroupSwap(
   hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
+  trainingStreak: Map<string, number>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
 
@@ -533,16 +553,9 @@ function isValidCrossGroupSwap(
   }
 
   if (hardMax !== null) {
-    let streak = 1;
-    for (let i = dayIdx - 1; i >= 0; i--) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
+    if (computeStreak(move.addId, dayIdx, daySlots, opDayStrs, trainingStreak) > hardMax) {
+      return false;
     }
-    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
-    }
-    if (streak > hardMax) return false;
   }
 
   return true;
@@ -555,6 +568,7 @@ function isValidFairnessSwap(
   hardMax: number | null,
   hardMinGap: number,
   constraintSet: Set<string>,
+  trainingStreak: Map<string, number>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
 
@@ -570,16 +584,9 @@ function isValidFairnessSwap(
   }
 
   if (hardMax !== null) {
-    let streak = 1;
-    for (let i = dayIdx - 1; i >= 0; i--) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
+    if (computeStreak(move.addId, dayIdx, daySlots, opDayStrs, trainingStreak) > hardMax) {
+      return false;
     }
-    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
-    }
-    if (streak > hardMax) return false;
   }
 
   return true;
@@ -593,11 +600,12 @@ function isValidMove(
   hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
+  trainingStreak: Map<string, number>,
 ): boolean {
   if (move.type === "swap") {
-    return isValidSwapMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock);
+    return isValidSwapMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, minBlock, trainingStreak);
   }
-  return isValidTransferMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet);
+  return isValidTransferMove(move, daySlots, opDayStrs, hardMax, hardMinGap, constraintSet, trainingStreak);
 }
 
 function isValidSwapMove(
@@ -608,6 +616,7 @@ function isValidSwapMove(
   hardMinGap: number,
   constraintSet: Set<string>,
   minBlock: number,
+  trainingStreak: Map<string, number>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.dayStr}`)) return false;
 
@@ -633,16 +642,9 @@ function isValidSwapMove(
   }
 
   if (hardMax !== null) {
-    let streak = 1;
-    for (let i = dayIdx - 1; i >= 0; i--) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
+    if (computeStreak(move.addId, dayIdx, daySlots, opDayStrs, trainingStreak) > hardMax) {
+      return false;
     }
-    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
-    }
-    if (streak > hardMax) return false;
   }
 
   return true;
@@ -684,6 +686,7 @@ function isValidTransferMove(
   hardMax: number | null,
   hardMinGap: number,
   constraintSet: Set<string>,
+  trainingStreak: Map<string, number>,
 ): boolean {
   if (constraintSet.has(`${move.addId}:${move.toDayStr}`)) return false;
 
@@ -700,16 +703,9 @@ function isValidTransferMove(
   }
 
   if (hardMax !== null) {
-    let streak = 1;
-    for (let i = dayIdx - 1; i >= 0; i--) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
+    if (computeStreak(move.addId, dayIdx, daySlots, opDayStrs, trainingStreak) > hardMax) {
+      return false;
     }
-    for (let i = dayIdx + 1; i < opDayStrs.length; i++) {
-      if (daySlots.get(opDayStrs[i])?.has(move.addId)) streak++;
-      else break;
-    }
-    if (streak > hardMax) return false;
   }
 
   return true;
@@ -751,6 +747,29 @@ function wouldShrinkGapBelowMin(
   if (rightBounded && rightGap > 0 && rightGap < hardMinGap) return true;
 
   return false;
+}
+
+function computeStreak(
+  soldierId: string,
+  dayIdx: number,
+  daySlots: Map<string, Set<string>>,
+  opDayStrs: readonly string[],
+  trainingStreak: Map<string, number>,
+): number {
+  let streak = 1;
+  let i = dayIdx - 1;
+  while (i >= 0 && daySlots.get(opDayStrs[i])?.has(soldierId)) {
+    streak++;
+    i--;
+  }
+  if (i < 0) {
+    streak += trainingStreak.get(soldierId) ?? 0;
+  }
+  for (let j = dayIdx + 1; j < opDayStrs.length; j++) {
+    if (daySlots.get(opDayStrs[j])?.has(soldierId)) streak++;
+    else break;
+  }
+  return streak;
 }
 
 function wouldRemovalShrinkGapBelowMin(
