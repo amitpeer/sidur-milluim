@@ -14,7 +14,7 @@ export default async function TransitionsPage({ params }: Props) {
 
   if (!data.hasActiveSchedule) {
     return (
-      <div className="p-6 text-zinc-500">אין סידור פעיל. צרו סידור תחילה.</div>
+      <div className="p-6 text-zinc-500">אין גיליון פעיל. יש לייצא גיליון תחילה.</div>
     );
   }
 

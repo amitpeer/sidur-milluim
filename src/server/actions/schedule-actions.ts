@@ -39,12 +39,13 @@ export async function getTransitionsDataAction(seasonId: string) {
   const session = await getApprovedSession();
   if (!session) return null;
 
-  const [seasonDates, activeVersion] = await Promise.all([
+  const [seasonDates, activeVersion, activeSheet] = await Promise.all([
     getSeasonDates(seasonId),
     getActiveScheduleVersionId(seasonId),
+    getActiveSheetExport(seasonId),
   ]);
 
-  if (!activeVersion || !seasonDates) {
+  if (!activeVersion || !seasonDates || !activeSheet) {
     return { assignments: [], hasActiveSchedule: false, referenceDate: null };
   }
 
