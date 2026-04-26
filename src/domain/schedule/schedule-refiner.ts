@@ -58,7 +58,7 @@ export function refineSchedule(input: RefineInput): ScheduleAssignment[] {
 
   const hardMax = season.avgDaysArmy != null
     ? Math.min(season.avgDaysArmy + 5, 10)
-    : null;
+    : 10;
   const hardMinGap = 3;
   const minBlock = Math.min(4, season.avgDaysArmy ?? 7);
   const targetGap = season.avgDaysHome ?? 7;

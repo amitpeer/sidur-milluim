@@ -123,8 +123,8 @@ export function suggestReplacements(
   return scored.sort((a, b) => b.score - a.score);
 }
 
-function deriveHardMax(avgDaysArmy: number | null | undefined): number | null {
-  if (avgDaysArmy == null) return null;
+function deriveHardMax(avgDaysArmy: number | null | undefined): number {
+  if (avgDaysArmy == null) return 10;
   return Math.min(avgDaysArmy + HARD_MAX_BUFFER, 10);
 }
 

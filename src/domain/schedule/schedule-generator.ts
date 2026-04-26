@@ -22,6 +22,7 @@ interface GenerateInput {
 const DEFAULT_AVG_ARMY = 7;
 const DEFAULT_AVG_HOME = 7;
 const HARD_MIN_GAP = 3;
+const HARD_MAX_CONSECUTIVE = 10;
 
 interface RotationConfig {
   readonly soldiers: readonly SeasonSoldier[];
@@ -179,7 +180,11 @@ function buildRotationTemplate(config: RotationConfig): Map<string, Set<string>>
       const offset = offsets.get(soldier.id) ?? 0;
       const pos = ((dayIdx - offset) % cycle + cycle) % cycle;
 
-      if (pos < soldierOnDuration && hasMinGapSinceLastBlock(soldier.id, dayIdx, result, operationalDays)) {
+      if (
+        pos < soldierOnDuration &&
+        hasMinGapSinceLastBlock(soldier.id, dayIdx, result, operationalDays) &&
+        !wouldExceedMaxConsecutive(soldier.id, dayIdx, result, operationalDays)
+      ) {
         rawOnBase.add(soldier.id);
       }
     }
@@ -361,7 +366,8 @@ function capExcessDrivers(
       !onBase.has(s.id) &&
       !isConstrained(s.id, dateStr, constraintSet) &&
       !s.roles.includes("driver" as SoldierRole) &&
-      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays),
+      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
     )
     .sort((a, b) => {
       const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -429,7 +435,8 @@ function padToHeadcount(
         !result.has(s.id) &&
         !isConstrained(s.id, dateStr, constraintSet) &&
         s.roles.some((r) => neededRoles.includes(r)) &&
-        hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays),
+        hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+        !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
       )
       .sort((a, b) => {
         const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -449,7 +456,8 @@ function padToHeadcount(
     .filter((s) =>
       !result.has(s.id) &&
       !isConstrained(s.id, dateStr, constraintSet) &&
-      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays),
+      hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+      !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
     )
     .sort((a, b) => {
       const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -496,7 +504,8 @@ function fixRolesAtHeadcount(
           s.roles.includes(role) &&
           !result.has(s.id) &&
           !isConstrained(s.id, dateStr, constraintSet) &&
-          hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays),
+          hasMinGapSinceLastBlock(s.id, dayIdx, previousSlots, operationalDays) &&
+          !wouldExceedMaxConsecutive(s.id, dayIdx, previousSlots, operationalDays),
         )
         .sort((a, b) => {
           const aAdj = prevSlots?.has(a.id) ? 0 : 1;
@@ -590,6 +599,21 @@ function findNeededRoles(
     if (count < min) needed.push(role);
   }
   return needed;
+}
+
+function wouldExceedMaxConsecutive(
+  soldierId: string,
+  dayIdx: number,
+  previousSlots: Map<string, Set<string>>,
+  operationalDays: readonly Date[],
+): boolean {
+  let streak = 0;
+  for (let i = dayIdx - 1; i >= 0; i--) {
+    const ds = dateToString(operationalDays[i]);
+    if (previousSlots.get(ds)?.has(soldierId)) streak++;
+    else break;
+  }
+  return streak >= HARD_MAX_CONSECUTIVE;
 }
 
 function hasMinGapSinceLastBlock(
