@@ -605,7 +605,7 @@ function hasMinGapSinceLastBlock(
   }
 
   // Check that the soldier has been off for at least HARD_MIN_GAP days
-  for (let i = 1; i < HARD_MIN_GAP && dayIdx - i >= 0; i++) {
+  for (let i = 1; i <= HARD_MIN_GAP && dayIdx - i >= 0; i++) {
     const ds = dateToString(operationalDays[dayIdx - i]);
     if (previousSlots.get(ds)?.has(soldierId)) return false;
   }

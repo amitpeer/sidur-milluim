@@ -173,31 +173,35 @@ function wouldShrinkGapBelowMin(
     }
   }
 
-  // If adjacent to an existing block, this extends it — no gap is shrunk
-  const prevStr = dateToString(addDays(date, -1));
-  const nextStr = dateToString(addDays(date, 1));
-  if (onBaseDates.has(prevStr) || onBaseDates.has(nextStr)) return false;
+  // Find the edges of the block that would form after placing the soldier
+  let leftEdge = date;
+  while (onBaseDates.has(dateToString(addDays(leftEdge, -1)))) {
+    leftEdge = addDays(leftEdge, -1);
+  }
+  let rightEdge = date;
+  while (onBaseDates.has(dateToString(addDays(rightEdge, 1)))) {
+    rightEdge = addDays(rightEdge, 1);
+  }
 
-  // Measure gap to nearest on-base day on each side
+  // Measure gap to the left of the resulting block
   let leftGap = 0;
-  let d = addDays(date, -1);
+  let d = addDays(leftEdge, -1);
   while (!onBaseDates.has(dateToString(d))) {
     leftGap++;
     d = addDays(d, -1);
     if (leftGap >= hardMinGap) break;
   }
+  if (leftGap < hardMinGap && onBaseDates.has(dateToString(d))) return true;
 
+  // Measure gap to the right of the resulting block
   let rightGap = 0;
-  d = addDays(date, 1);
+  d = addDays(rightEdge, 1);
   while (!onBaseDates.has(dateToString(d))) {
     rightGap++;
     d = addDays(d, 1);
     if (rightGap >= hardMinGap) break;
   }
-
-  // Only check gaps that are bounded by an on-base day (not open-ended)
-  if (leftGap < hardMinGap && onBaseDates.has(dateToString(addDays(date, -(leftGap + 1))))) return true;
-  if (rightGap < hardMinGap && onBaseDates.has(dateToString(addDays(date, rightGap + 1)))) return true;
+  if (rightGap < hardMinGap && onBaseDates.has(dateToString(d))) return true;
 
   return false;
 }

@@ -705,32 +705,33 @@ function wouldShrinkGapBelowMin(
   opDayStrs: readonly string[],
   hardMinGap: number,
 ): boolean {
-  // If the soldier is already on-base on an adjacent day, this extends a block — no gap shrunk
-  const adjLeft = addDayIdx > 0 && daySlots.get(opDayStrs[addDayIdx - 1])?.has(soldierId);
-  const adjRight = addDayIdx < opDayStrs.length - 1 && daySlots.get(opDayStrs[addDayIdx + 1])?.has(soldierId);
-  if (adjLeft || adjRight) return false;
+  // Find the edges of the block that would form after placing the soldier
+  let leftEdge = addDayIdx;
+  while (leftEdge > 0 && daySlots.get(opDayStrs[leftEdge - 1])?.has(soldierId)) {
+    leftEdge--;
+  }
+  let rightEdge = addDayIdx;
+  while (rightEdge < opDayStrs.length - 1 && daySlots.get(opDayStrs[rightEdge + 1])?.has(soldierId)) {
+    rightEdge++;
+  }
 
-  // Soldier is off-base on both sides — placing them here splits a gap into two
-  // Measure the gap to the left (distance to nearest on-base day)
+  // Measure gap to the left of the resulting block
   let leftGap = 0;
-  for (let i = addDayIdx - 1; i >= 0; i--) {
+  for (let i = leftEdge - 1; i >= 0; i--) {
     if (daySlots.get(opDayStrs[i])?.has(soldierId)) break;
     leftGap++;
   }
+  const leftBounded = leftEdge - 1 - leftGap >= 0;
+  if (leftBounded && leftGap > 0 && leftGap < hardMinGap) return true;
 
-  // Measure the gap to the right
+  // Measure gap to the right of the resulting block
   let rightGap = 0;
-  for (let i = addDayIdx + 1; i < opDayStrs.length; i++) {
+  for (let i = rightEdge + 1; i < opDayStrs.length; i++) {
     if (daySlots.get(opDayStrs[i])?.has(soldierId)) break;
     rightGap++;
   }
-
-  // Each resulting gap must be at least hardMinGap (unless it reaches the edge)
-  const leftHitsEdge = addDayIdx - leftGap === 0;
-  const rightHitsEdge = addDayIdx + rightGap === opDayStrs.length - 1;
-
-  if (!leftHitsEdge && leftGap > 0 && leftGap < hardMinGap) return true;
-  if (!rightHitsEdge && rightGap > 0 && rightGap < hardMinGap) return true;
+  const rightBounded = rightEdge + 1 + rightGap < opDayStrs.length;
+  if (rightBounded && rightGap > 0 && rightGap < hardMinGap) return true;
 
   return false;
 }
