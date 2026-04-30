@@ -318,6 +318,17 @@ export async function setActiveSheetExportAction(
   if (!admin) return { error: "אין הרשאה" };
 
   await setActiveSheetExport(exportId, seasonId);
+
+  const sheetExport = await getSheetExportById(exportId);
+  if (sheetExport) {
+    const spreadsheetId = extractSpreadsheetId(sheetExport.url);
+    if (spreadsheetId) {
+      const members = await getSeasonMembers(seasonId);
+      await shareWithMembers(spreadsheetId, members);
+      await markSheetAsShared(exportId);
+    }
+  }
+
   return { success: true };
 }
 
