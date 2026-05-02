@@ -240,9 +240,9 @@ function ConstraintsSection({
         seasonStart={seasonStart}
         seasonEnd={seasonEnd}
         getDayStatus={(dateStr) => {
+          if (existingDates.has(dateStr)) return "existing";
           if (deadlinePassed) return "disabled";
           if (pendingRemoves.has(dateStr)) return "removing";
-          if (existingDates.has(dateStr)) return "existing";
           if (pendingAdds.has(dateStr)) return "selected";
           return "default";
         }}
