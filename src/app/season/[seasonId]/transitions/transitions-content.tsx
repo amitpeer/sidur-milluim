@@ -146,7 +146,7 @@ function TransitionSection({
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950">
           <h4 className="mb-2 text-sm font-medium text-green-700 dark:text-green-300">
-            מגיעים
+            מגיעים ({arriving.length})
           </h4>
           {arriving.length > 0 ? (
             <ul className="space-y-1">
@@ -160,7 +160,7 @@ function TransitionSection({
         </div>
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
           <h4 className="mb-2 text-sm font-medium text-red-700 dark:text-red-300">
-            עוזבים
+            עוזבים ({leaving.length})
           </h4>
           {leaving.length > 0 ? (
             <ul className="space-y-1">
