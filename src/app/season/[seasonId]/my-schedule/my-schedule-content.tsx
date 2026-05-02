@@ -21,12 +21,14 @@ interface Props {
   readonly seasonId: string;
   readonly initialSchedule: ScheduleDay[] | null;
   readonly initialConstraintsData: ConstraintsData | null;
+  readonly showSchedule?: boolean;
 }
 
 export function MyScheduleContent({
   seasonId,
   initialSchedule,
   initialConstraintsData,
+  showSchedule = true,
 }: Props) {
   const [schedule, setSchedule] = useState(initialSchedule);
   const [constraints, setConstraints] = useState<ConstraintsData["constraints"]>(
@@ -44,7 +46,7 @@ export function MyScheduleContent({
 
   const load = useCallback(async () => {
     const [scheduleData, constraintsData] = await Promise.all([
-      getMyScheduleAction(seasonId),
+      showSchedule ? getMyScheduleAction(seasonId) : Promise.resolve(null),
       getConstraintsPageDataAction(seasonId),
     ]);
     setSchedule(scheduleData);
@@ -53,14 +55,16 @@ export function MyScheduleContent({
       setConstraints(constraintsData.constraints);
       setProfileId(constraintsData.profileId);
     }
-  }, [seasonId]);
+  }, [seasonId, showSchedule]);
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      {schedule ? (
-        <ScheduleSection schedule={schedule} />
-      ) : (
-        <p className="mb-6 text-sm text-zinc-500">אין סידור פעיל.</p>
+      {showSchedule && (
+        schedule ? (
+          <ScheduleSection schedule={schedule} />
+        ) : (
+          <p className="mb-6 text-sm text-zinc-500">אין סידור פעיל.</p>
+        )
       )}
 
       {season && profileId && (
