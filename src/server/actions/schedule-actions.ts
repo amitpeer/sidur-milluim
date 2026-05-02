@@ -288,7 +288,7 @@ export async function getSoldierStatsAction(
     getConstraintsForSeason(seasonId),
     getActiveSheetExport(seasonId),
   ]);
-  if (!seasonConfig || !version) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
+  if (!seasonConfig || !version || !activeSheet) return { stats: [], versionDate: null, sheetVersionNumber: null, lastSyncedAt: null };
 
   const start = new Date(seasonConfig.startDate);
   const end = new Date(seasonConfig.endDate);
@@ -418,6 +418,7 @@ export async function getManagementPageDataAction(seasonId: string) {
       avgDaysArmy: season.avgDaysArmy,
       avgDaysHome: season.avgDaysHome,
       farAwayExtraDays: season.farAwayExtraDays ?? null,
+      scheduleVisible: season.scheduleVisible,
     },
     versions,
     warnings,

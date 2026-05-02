@@ -94,6 +94,7 @@ model Season {
   avgDaysHome           Int?
   farAwayExtraDays      Int?
   isActive              Boolean            @default(true)
+  scheduleVisible       Boolean            @default(false)
   members             SeasonMember[]
   dayOffConstraints   DayOffConstraint[]
   scheduleVersions    ScheduleVersion[]

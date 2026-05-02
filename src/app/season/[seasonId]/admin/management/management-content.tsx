@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   updateSeasonAction,
   deleteSeasonAction,
+  toggleScheduleVisibilityAction,
   type CreateSeasonState,
 } from "@/server/actions/season-actions";
 import {
@@ -63,6 +64,10 @@ export function ManagementContent({
   const [pendingExportAction, setPendingExportAction] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [draftSheetUrl, setDraftSheetUrl] = useState<string | null>(null);
+  const [scheduleVisible, setScheduleVisible] = useState(
+    initialPageData.season.scheduleVisible,
+  );
+  const [visibilityPending, setVisibilityPending] = useState(false);
   const [suggestions, setSuggestions] = useState<
     Awaited<ReturnType<typeof suggestScheduleConfigAction>>
   >([]);
@@ -76,6 +81,7 @@ export function ManagementContent({
     setSheetExports(exports);
     if (!data) return;
     setSeason(data.season);
+    setScheduleVisible(data.season.scheduleVisible);
     setWarnings(data.warnings);
     setHasActiveSchedule(data.versions.some((v) => v.isActive));
     onScheduleChange?.();
@@ -246,6 +252,15 @@ export function ManagementContent({
     setSuggestionsLoading(false);
   };
 
+  const handleToggleVisibility = async () => {
+    setVisibilityPending(true);
+    const result = await toggleScheduleVisibilityAction(seasonId);
+    setVisibilityPending(false);
+    if ("scheduleVisible" in result && result.scheduleVisible !== undefined) {
+      setScheduleVisible(result.scheduleVisible);
+    }
+  };
+
   const applySuggestion = (avgArmy: number, avgHome: number) => {
     const armyInput = document.getElementById("avgDaysArmy") as HTMLInputElement | null;
     const homeInput = document.getElementById("avgDaysHome") as HTMLInputElement | null;
@@ -288,6 +303,29 @@ export function ManagementContent({
       <div className="flex flex-col gap-6">
         <Section title="סידור וייצוא">
           <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">הצג סידור לחיילים</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={scheduleVisible}
+                onClick={handleToggleVisibility}
+                disabled={visibilityPending}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                  scheduleVisible ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-600"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    scheduleVisible ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400">
+              כשכבוי, חיילים לא יראו את &quot;הסידור שלי&quot; ו&quot;דמבו&quot;.
+            </p>
+
             {!hasActiveSchedule ? (
               <button
                 onClick={handleCreateSchedule}

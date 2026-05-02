@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation";
 interface MobileNavProps {
   seasonId: string;
   isAdmin: boolean;
+  scheduleVisible: boolean;
 }
+
+const SCHEDULE_HIDDEN_PATHS = new Set(["my-schedule", "transitions"]);
 
 const LEFT_ITEMS = [
   { path: "my-schedule", label: "שלי", icon: "user" },
@@ -17,14 +20,22 @@ const RIGHT_ITEMS = [
   { path: "profile", label: "פרופיל", icon: "profile" },
 ] as const;
 
-export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
+export function MobileNav({ seasonId, isAdmin, scheduleVisible }: MobileNavProps) {
   const pathname = usePathname();
+
+  const hideSchedule = !scheduleVisible && !isAdmin;
+  const leftItems = hideSchedule
+    ? LEFT_ITEMS.filter((i) => !SCHEDULE_HIDDEN_PATHS.has(i.path))
+    : LEFT_ITEMS;
+  const rightItems = hideSchedule
+    ? RIGHT_ITEMS.filter((i) => !SCHEDULE_HIDDEN_PATHS.has(i.path))
+    : RIGHT_ITEMS;
 
   const boardHref = `/season/${seasonId}/board`;
   const isBoardActive =
     pathname === boardHref || pathname.startsWith(boardHref + "/");
 
-  const itemCount = LEFT_ITEMS.length + 1 + RIGHT_ITEMS.length + (isAdmin ? 2 : 0);
+  const itemCount = leftItems.length + 1 + rightItems.length + (isAdmin ? 2 : 0);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
@@ -36,7 +47,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
           isActive={isBoardActive}
         />
 
-        {LEFT_ITEMS.map((item) => (
+        {leftItems.map((item) => (
           <NavLink
             key={item.path}
             href={`/season/${seasonId}/${item.path}`}
@@ -49,7 +60,7 @@ export function MobileNav({ seasonId, isAdmin }: MobileNavProps) {
           />
         ))}
 
-        {RIGHT_ITEMS.map((item) => (
+        {rightItems.map((item) => (
           <NavLink
             key={item.path}
             href={`/season/${seasonId}/${item.path}`}

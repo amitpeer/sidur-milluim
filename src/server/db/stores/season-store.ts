@@ -40,7 +40,7 @@ export async function getSeasonById(id: string) {
 export async function getSeasonName(id: string) {
   return prisma.season.findUnique({
     where: { id },
-    select: { name: true },
+    select: { name: true, scheduleVisible: true },
   });
 }
 
@@ -129,6 +129,7 @@ export async function updateSeason(
     avgDaysHome?: number | null;
     farAwayExtraDays?: number | null;
     isActive?: boolean;
+    scheduleVisible?: boolean;
   },
 ) {
   return prisma.season.update({ where: { id }, data });

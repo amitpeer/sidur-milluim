@@ -16,6 +16,7 @@ import {
   addSeasonMember,
   isSeasonAdmin,
 } from "@/server/db/stores/soldier-store";
+import { revalidatePath } from "next/cache";
 
 const createSeasonSchema = z.object({
   name: z.string().min(1, "שם עונה נדרש"),
@@ -210,4 +211,26 @@ export async function deleteSeasonAction(
 
   await deleteSeason(seasonId);
   redirect("/");
+}
+
+export async function toggleScheduleVisibilityAction(
+  seasonId: string,
+): Promise<{ error?: string; scheduleVisible?: boolean }> {
+  const session = await getApprovedSession();
+  if (!session) return { error: "לא מחובר" };
+
+  const profile = await getSoldierProfile(session.user.id);
+  if (!profile) return { error: "אין הרשאה" };
+
+  const admin = await isSeasonAdmin(seasonId, profile.id);
+  if (!admin) return { error: "אין הרשאה" };
+
+  const season = await getSeasonById(seasonId);
+  if (!season) return { error: "עונה לא נמצאה" };
+
+  const newValue = !season.scheduleVisible;
+  await updateSeason(seasonId, { scheduleVisible: newValue });
+  revalidatePath(`/season/${seasonId}`);
+
+  return { scheduleVisible: newValue };
 }

@@ -22,6 +22,7 @@ export default async function SeasonLayout({
     auth(),
   ]);
   if (!season) notFound();
+  const scheduleVisible = season.scheduleVisible;
   if (session?.user && !session.user.isApproved && !session.user.isAdmin) {
     redirect("/auth/pending");
   }
@@ -34,12 +35,18 @@ export default async function SeasonLayout({
     }
   }
 
-  const soldierNav = [
+  const allSoldierNav = [
     { href: `/season/${seasonId}/board`, label: "בית" },
     { href: `/season/${seasonId}/my-schedule`, label: "הסידור שלי" },
     { href: `/season/${seasonId}/transitions`, label: "דמבו" },
     { href: `/season/${seasonId}/profile`, label: "הפרופיל שלי" },
   ];
+
+  const hiddenPaths = !scheduleVisible && !isAdmin
+    ? new Set([`/season/${seasonId}/my-schedule`, `/season/${seasonId}/transitions`])
+    : new Set<string>();
+
+  const soldierNav = allSoldierNav.filter((item) => !hiddenPaths.has(item.href));
 
   const adminNav = [
     { href: "/", label: "עונות" },
@@ -95,7 +102,7 @@ export default async function SeasonLayout({
         </div>
       </header>
       <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
-      <MobileNav seasonId={seasonId} isAdmin={isAdmin} />
+      <MobileNav seasonId={seasonId} isAdmin={isAdmin} scheduleVisible={scheduleVisible} />
     </div>
   );
 }
