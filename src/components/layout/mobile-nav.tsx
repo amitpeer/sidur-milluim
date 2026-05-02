@@ -9,7 +9,7 @@ interface MobileNavProps {
   scheduleVisible: boolean;
 }
 
-const SCHEDULE_HIDDEN_PATHS = new Set(["my-schedule", "transitions"]);
+const SCHEDULE_HIDDEN_PATHS = new Set(["transitions"]);
 
 const LEFT_ITEMS = [
   { path: "my-schedule", label: "שלי", icon: "user" },

@@ -43,7 +43,7 @@ export default async function SeasonLayout({
   ];
 
   const hiddenPaths = !scheduleVisible && !isAdmin
-    ? new Set([`/season/${seasonId}/my-schedule`, `/season/${seasonId}/transitions`])
+    ? new Set([`/season/${seasonId}/transitions`])
     : new Set<string>();
 
   const soldierNav = allSoldierNav.filter((item) => !hiddenPaths.has(item.href));
