@@ -60,15 +60,15 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
 
   const sections = Array.from({ length: daysAhead }, (_, i) => {
     const day = addDays(ref, i);
-    const prevDay = addDays(ref, i - 1);
+    const nextDay = addDays(ref, i + 1);
     const dayStr = dateToString(day);
-    const prevStr = dateToString(prevDay);
+    const nextStr = dateToString(nextDay);
 
-    const prevSet = getSoldiersOnDate(prevStr);
     const daySet = getSoldiersOnDate(dayStr);
+    const nextSet = getSoldiersOnDate(nextStr);
 
-    const arriving = sortByFamilyName([...daySet].filter((id) => !prevSet.has(id)).map(getName));
-    const leaving = sortByFamilyName([...prevSet].filter((id) => !daySet.has(id)).map(getName));
+    const arriving = sortByFamilyName([...nextSet].filter((id) => !daySet.has(id)).map(getName));
+    const leaving = sortByFamilyName([...daySet].filter((id) => !nextSet.has(id)).map(getName));
 
     const dayOfWeek = formatDayOfWeek(day);
     const shortDate = formatShortDate(day);
