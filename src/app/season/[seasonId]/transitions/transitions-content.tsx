@@ -123,30 +123,9 @@ export function TransitionsContent({
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">דמבו</h2>
-        <div className="flex items-center gap-2">
-          <select
-            value={daysAhead}
-            onChange={(e) => setDaysAhead(Number(e.target.value))}
-            className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {Array.from({ length: MAX_DAYS_AHEAD }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n} {n === 1 ? "יום" : "ימים"}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleCopy}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {copied ? "הועתק!" : "העתק"}
-          </button>
-        </div>
-      </div>
+      <h2 className="mb-4 text-xl font-semibold">דמבו</h2>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">החל מ:</p>
         <div className="flex flex-wrap items-center gap-2">
           {CHIP_OPTIONS.map((chip, i) => (
@@ -183,6 +162,30 @@ export function TransitionsContent({
             />
           </label>
         </div>
+      </div>
+
+      <div className="mb-4 flex items-center gap-3">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">מספר ימים:</p>
+        <select
+          value={daysAhead}
+          onChange={(e) => setDaysAhead(Number(e.target.value))}
+          className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {Array.from({ length: MAX_DAYS_AHEAD }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n} {n === 1 ? "יום" : "ימים"}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-6">
+        <button
+          onClick={handleCopy}
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {copied ? "הועתק!" : "העתק"}
+        </button>
       </div>
 
       {sections.map((s) => (
