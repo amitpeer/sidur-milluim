@@ -160,7 +160,7 @@ export async function getMyScheduleAction(seasonId: string) {
     current.setUTCDate(current.getUTCDate() + 1);
   }
 
-  return days;
+  return { days, lastSyncedAt: activeSheet.lastSyncedAt };
 }
 
 export async function getScheduleVersionsAction(seasonId: string) {

@@ -10,13 +10,14 @@ import { dateToString, parseServerDate } from "@/lib/date-utils";
 import { MonthCalendarGrid } from "@/components/month-calendar-grid";
 import { ScheduleCalendar } from "@/components/schedule-calendar";
 
-type ScheduleDay = NonNullable<Awaited<ReturnType<typeof getMyScheduleAction>>>[number];
+type ScheduleResult = NonNullable<Awaited<ReturnType<typeof getMyScheduleAction>>>;
+type ScheduleDay = ScheduleResult["days"][number];
 type ConstraintsData = NonNullable<Awaited<ReturnType<typeof getConstraintsPageDataAction>>>;
 type SeasonData = ConstraintsData["season"];
 
 interface Props {
   readonly seasonId: string;
-  readonly initialSchedule: ScheduleDay[] | null;
+  readonly initialSchedule: ScheduleResult | null;
   readonly initialConstraintsData: ConstraintsData | null;
   readonly showSchedule?: boolean;
 }
@@ -58,7 +59,11 @@ export function MyScheduleContent({
     <div className="mx-auto max-w-2xl p-6">
       {showSchedule && (
         schedule && season ? (
-          <ScheduleSection schedule={schedule} season={season} />
+          <ScheduleSection
+            schedule={schedule.days}
+            season={season}
+            lastSyncedAt={schedule.lastSyncedAt}
+          />
         ) : (
           <p className="mb-6 text-sm text-zinc-500">אין סידור פעיל.</p>
         )
@@ -129,9 +134,11 @@ export function MyScheduleContent({
 function ScheduleSection({
   schedule,
   season,
+  lastSyncedAt,
 }: {
   readonly schedule: ScheduleDay[];
   readonly season: SeasonData;
+  readonly lastSyncedAt: Date | string | null;
 }) {
   const onBaseDays = schedule.filter((d) => d.status === "on-base");
   const constraintOffDays = schedule.filter((d) => d.status === "constraint-off");
@@ -149,7 +156,12 @@ function ScheduleSection({
       <h2 className="mb-4 text-xl font-semibold">הסידור שלי</h2>
 
       <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400">
-        הסידור המוצג הוא משוער בלבד. הגרסה הקובעת היא הגיליון המשותף.
+        <p>הסידור המוצג הוא משוער בלבד. הגרסה הקובעת היא הגיליון המשותף.</p>
+        {lastSyncedAt && (
+          <p className="mt-1 text-xs">
+            עודכן לאחרונה: <strong>{formatSyncedAgo(lastSyncedAt)}</strong>
+          </p>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-3 text-sm">
@@ -188,6 +200,17 @@ function ScheduleSection({
       </div>
     </>
   );
+}
+
+function formatSyncedAgo(value: Date | string): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  const dateStr = date.toLocaleDateString("he-IL");
+  if (diffDays === 0) return `${dateStr} (היום)`;
+  if (diffDays === 1) return `${dateStr} (אתמול)`;
+  return `${dateStr} (לפני ${diffDays} ימים)`;
 }
 
 function ConstraintsSection({
