@@ -1,17 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  getMyScheduleAction,
-  type SoldierStats,
-} from "@/server/actions/schedule-actions";
+import { getMyScheduleAction } from "@/server/actions/schedule-actions";
 import {
   getConstraintsPageDataAction,
   saveConstraintChangesAction,
 } from "@/server/actions/constraint-actions";
-import { groupScheduleBySequence } from "@/domain/schedule/group-schedule-by-sequence";
 import { dateToString, parseServerDate } from "@/lib/date-utils";
 import { MonthCalendarGrid } from "@/components/month-calendar-grid";
+import { ScheduleCalendar } from "@/components/schedule-calendar";
 
 type ScheduleDay = NonNullable<Awaited<ReturnType<typeof getMyScheduleAction>>>[number];
 type ConstraintsData = NonNullable<Awaited<ReturnType<typeof getConstraintsPageDataAction>>>;
@@ -60,8 +57,8 @@ export function MyScheduleContent({
   return (
     <div className="mx-auto max-w-2xl p-6">
       {showSchedule && (
-        schedule ? (
-          <ScheduleSection schedule={schedule} />
+        schedule && season ? (
+          <ScheduleSection schedule={schedule} season={season} />
         ) : (
           <p className="mb-6 text-sm text-zinc-500">אין סידור פעיל.</p>
         )
@@ -129,16 +126,31 @@ export function MyScheduleContent({
   }
 }
 
-function ScheduleSection({ schedule }: { readonly schedule: ScheduleDay[] }) {
+function ScheduleSection({
+  schedule,
+  season,
+}: {
+  readonly schedule: ScheduleDay[];
+  readonly season: SeasonData;
+}) {
   const onBaseDays = schedule.filter((d) => d.status === "on-base");
   const constraintOffDays = schedule.filter((d) => d.status === "constraint-off");
   const rotationOffDays = schedule.filter((d) => d.status === "rotation-off");
   const sickDays = schedule.filter((d) => d.status === "sick");
   const courseDays = schedule.filter((d) => d.status === "course");
 
+  const seasonStart = parseServerDate(season.startDate);
+  const seasonEnd = parseServerDate(season.endDate);
+  seasonStart.setUTCHours(0, 0, 0, 0);
+  seasonEnd.setUTCHours(0, 0, 0, 0);
+
   return (
     <>
-      <h2 className="mb-6 text-xl font-semibold">הסידור שלי</h2>
+      <h2 className="mb-4 text-xl font-semibold">הסידור שלי</h2>
+
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400">
+        הסידור המוצג הוא משוער בלבד. הגרסה הקובעת היא הגיליון המשותף.
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-3 text-sm">
         <span className="rounded-full bg-green-100 px-3 py-1 text-green-700 dark:bg-green-900 dark:text-green-200">
@@ -164,16 +176,15 @@ function ScheduleSection({ schedule }: { readonly schedule: ScheduleDay[] }) {
         )}
       </div>
 
-      <div className="mb-8 flex flex-col gap-4">
-        <DaySection title="ימים בבסיס" days={onBaseDays} emptyText="אין ימים בבסיס" dotColor="bg-green-500" />
-        <DaySection title="ימי חופש — אילוץ" days={constraintOffDays} emptyText="אין ימי אילוץ" dotColor="bg-red-500" />
-        <DaySection title="ימי בבית" days={rotationOffDays} emptyText="אין ימי בבית" dotColor="bg-zinc-400" />
-        {sickDays.length > 0 && (
-          <DaySection title="ימי מחלה" days={sickDays} emptyText="אין ימי מחלה" dotColor="bg-yellow-500" />
-        )}
-        {courseDays.length > 0 && (
-          <DaySection title="ימי קורס" days={courseDays} emptyText="אין ימי קורס" dotColor="bg-blue-500" />
-        )}
+      <div className="mb-8">
+        <ScheduleCalendar
+          seasonStart={seasonStart}
+          seasonEnd={seasonEnd}
+          days={schedule.map((d) => ({
+            date: new Date(d.date),
+            status: d.status,
+          }))}
+        />
       </div>
     </>
   );
@@ -282,75 +293,3 @@ function ConstraintsSection({
   );
 }
 
-function formatSequenceDate(startDate: Date, endDate: Date, dayCount: number): string {
-  if (dayCount === 1) {
-    return startDate.toLocaleDateString("he-IL", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
-  }
-
-  const startLabel = startDate.toLocaleDateString("he-IL", { day: "numeric" });
-  const endLabel = endDate.toLocaleDateString("he-IL", { day: "numeric", month: "long" });
-  return `${startLabel}-${endLabel} (${dayCount} ימים)`;
-}
-
-function DaySection({
-  title,
-  days,
-  emptyText,
-  dotColor,
-}: {
-  readonly title: string;
-  readonly days: ScheduleDay[];
-  readonly emptyText: string;
-  readonly dotColor: string;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const sequences = groupScheduleBySequence(
-    days.map((d) => ({ date: new Date(d.date), status: d.status })),
-  );
-
-  return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
-      >
-        <span>{title} ({days.length})</span>
-        <svg
-          className={`h-4 w-4 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <div className="divide-y divide-zinc-100 border-t border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-          {sequences.map((seq) => (
-            <div
-              key={seq.startDate.toISOString()}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm"
-            >
-              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
-              <span>
-                {formatSequenceDate(seq.startDate, seq.endDate, seq.dayCount)}
-              </span>
-            </div>
-          ))}
-          {days.length === 0 && (
-            <p className="px-4 py-4 text-center text-sm text-zinc-400">
-              {emptyText}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
