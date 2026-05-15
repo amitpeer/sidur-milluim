@@ -293,13 +293,6 @@ export async function getSoldierStatsAction(
   end.setUTCHours(0, 0, 0, 0);
   const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  const opStart = seasonConfig.trainingEndDate
-    ? new Date(new Date(seasonConfig.trainingEndDate).setUTCHours(0, 0, 0, 0) + 86400000)
-    : start;
-  const totalOperationalDays = opStart <= end
-    ? Math.round((end.getTime() - opStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    : 0;
-
   const constraintCounts = new Map<string, number>();
   const constraintKeySet = new Set<string>();
   for (const c of constraints) {
@@ -311,7 +304,6 @@ export async function getSoldierStatsAction(
   }
 
   const onBaseCounts = new Map<string, number>();
-  const operationalOnBaseCounts = new Map<string, number>();
   const sickCounts = new Map<string, number>();
   const courseCounts = new Map<string, number>();
   const soldierNames = new Map<string, string>();
@@ -331,9 +323,6 @@ export async function getSoldierStatsAction(
       courseCounts.set(a.soldierProfileId, (courseCounts.get(a.soldierProfileId) ?? 0) + 1);
     } else if (a.isOnBase && !isConstraintDay) {
       onBaseCounts.set(a.soldierProfileId, (onBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
-      if (d >= opStart) {
-        operationalOnBaseCounts.set(a.soldierProfileId, (operationalOnBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
-      }
     }
   }
 
@@ -348,9 +337,8 @@ export async function getSoldierStatsAction(
       const daysAtHome = totalDays - daysInArmy - constraintDaysOff;
       const totalDaysOff = daysAtHome + constraintDaysOff;
       const totalDaysAtHome = totalDaysOff;
-      const operationalOnBase = operationalOnBaseCounts.get(id) ?? 0;
-      const onDutyPercentage = totalOperationalDays > 0
-        ? Math.round((operationalOnBase / totalOperationalDays) * 100)
+      const onDutyPercentage = totalDays > 0
+        ? Math.round((daysOnBase / totalDays) * 100)
         : 0;
       return { id, fullName, daysInArmy, totalDaysOff, totalDaysAtHome, daysAtHome, constraintDaysOff, sickDays, courseDays, onDutyPercentage };
     });
