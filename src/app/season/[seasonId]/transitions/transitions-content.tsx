@@ -15,13 +15,28 @@ const MAX_DAYS_AHEAD = 10;
 interface Props {
   readonly assignments: Assignment[];
   readonly referenceDate: string;
+  readonly seasonStartDate: string;
+  readonly seasonEndDate: string;
 }
 
-export function TransitionsContent({ assignments, referenceDate }: Props) {
+const CHIP_OPTIONS = [
+  { label: "היום", offset: 0 },
+  { label: "מחר", offset: 1 },
+  { label: "מחרתיים", offset: 2 },
+] as const;
+
+export function TransitionsContent({
+  assignments,
+  referenceDate,
+  seasonStartDate,
+  seasonEndDate,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const [daysAhead, setDaysAhead] = useState(3);
+  const [startDateStr, setStartDateStr] = useState(referenceDate);
 
-  const ref = new Date(referenceDate + "T00:00:00.000Z");
+  const refDate = new Date(referenceDate + "T00:00:00.000Z");
+  const ref = new Date(startDateStr + "T00:00:00.000Z");
 
   const getSoldiersOnDate = (dateStr: string) =>
     new Set(
@@ -57,6 +72,18 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
   const todayReal = new Date();
   todayReal.setUTCHours(0, 0, 0, 0);
   const isRefToday = dateToString(ref) === dateToString(todayReal);
+
+  const activeChipIndex = CHIP_OPTIONS.findIndex(
+    (chip) => dateToString(addDays(refDate, chip.offset)) === startDateStr,
+  );
+
+  const handleChipClick = (offset: number) => {
+    setStartDateStr(dateToString(addDays(refDate, offset)));
+  };
+
+  const handleCustomDate = (value: string) => {
+    if (value) setStartDateStr(value);
+  };
 
   const sections = Array.from({ length: daysAhead }, (_, i) => {
     const day = addDays(ref, i);
@@ -96,7 +123,7 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">דמבו</h2>
         <div className="flex items-center gap-2">
           <select
@@ -117,6 +144,30 @@ export function TransitionsContent({ assignments, referenceDate }: Props) {
             {copied ? "הועתק!" : "העתק"}
           </button>
         </div>
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {CHIP_OPTIONS.map((chip, i) => (
+          <button
+            key={chip.offset}
+            onClick={() => handleChipClick(chip.offset)}
+            className={`rounded-full px-3 py-1 text-sm transition-colors ${
+              activeChipIndex === i
+                ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "border border-zinc-300 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+        <input
+          type="date"
+          value={activeChipIndex === -1 ? startDateStr : ""}
+          min={seasonStartDate}
+          max={seasonEndDate}
+          onChange={(e) => handleCustomDate(e.target.value)}
+          className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        />
       </div>
 
       {sections.map((s) => (

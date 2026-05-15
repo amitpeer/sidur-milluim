@@ -43,6 +43,8 @@ export default async function TransitionsPage({ params }: Props) {
     <TransitionsContent
       assignments={data.assignments}
       referenceDate={data.referenceDate!}
+      seasonStartDate={data.seasonStartDate!}
+      seasonEndDate={data.seasonEndDate!}
     />
   );
 }

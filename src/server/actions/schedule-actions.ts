@@ -62,17 +62,14 @@ export async function getTransitionsDataAction(seasonId: string) {
   if (today < seasonStart) reference = seasonStart;
   else if (today > seasonEnd) reference = seasonEnd;
 
-  const dayBefore = new Date(reference);
-  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
-  const rangeEnd = new Date(reference);
-  rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 10);
-
-  const assignments = await getAssignmentsForDateRange(seasonId, dayBefore, rangeEnd);
+  const assignments = await getAssignmentsForDateRange(seasonId, seasonStart, seasonEnd);
 
   return {
     assignments,
     hasActiveSchedule: true,
     referenceDate: dateToString(reference),
+    seasonStartDate: dateToString(seasonStart),
+    seasonEndDate: dateToString(seasonEnd),
   };
 }
 
