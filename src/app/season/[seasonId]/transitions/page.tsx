@@ -45,6 +45,7 @@ export default async function TransitionsPage({ params }: Props) {
       referenceDate={data.referenceDate!}
       seasonStartDate={data.seasonStartDate!}
       seasonEndDate={data.seasonEndDate!}
+      lastSyncedAt={data.lastSyncedAt}
     />
   );
 }

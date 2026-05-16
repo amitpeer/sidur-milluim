@@ -46,7 +46,7 @@ export async function getTransitionsDataAction(seasonId: string) {
   ]);
 
   if (!activeVersion || !seasonDates || !activeSheet) {
-    return { assignments: [], hasActiveSchedule: false, referenceDate: null };
+    return { assignments: [], hasActiveSchedule: false, referenceDate: null, lastSyncedAt: null };
   }
 
   const today = new Date();
@@ -70,6 +70,7 @@ export async function getTransitionsDataAction(seasonId: string) {
     referenceDate: dateToString(reference),
     seasonStartDate: dateToString(seasonStart),
     seasonEndDate: dateToString(seasonEnd),
+    lastSyncedAt: activeSheet.lastSyncedAt,
   };
 }
 

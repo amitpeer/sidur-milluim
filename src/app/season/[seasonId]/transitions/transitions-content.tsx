@@ -17,6 +17,7 @@ interface Props {
   readonly referenceDate: string;
   readonly seasonStartDate: string;
   readonly seasonEndDate: string;
+  readonly lastSyncedAt: Date | string | null;
 }
 
 const CHIP_OPTIONS = [
@@ -30,6 +31,7 @@ export function TransitionsContent({
   referenceDate,
   seasonStartDate,
   seasonEndDate,
+  lastSyncedAt,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [daysAhead, setDaysAhead] = useState(3);
@@ -124,6 +126,15 @@ export function TransitionsContent({
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h2 className="mb-4 text-xl font-semibold">דמבו</h2>
+
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400">
+        <p>המידע המוצג הוא משוער בלבד. הגרסה הקובעת היא הגיליון המשותף.</p>
+        {lastSyncedAt && (
+          <p className="mt-1 text-xs">
+            עודכן לאחרונה: <strong>{formatSyncedAgo(lastSyncedAt)}</strong>
+          </p>
+        )}
+      </div>
 
       <div className="mb-4">
         <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">החל מ:</p>
@@ -244,4 +255,19 @@ function TransitionSection({
       </div>
     </div>
   );
+}
+
+function formatSyncedAgo(value: Date | string): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const dateStr = date.toLocaleDateString("he-IL");
+
+  const todayIL = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const syncIL = date.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const diffDays = Math.round(
+    (new Date(todayIL).getTime() - new Date(syncIL).getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (diffDays === 0) return `${dateStr} (היום)`;
+  if (diffDays === 1) return `${dateStr} (אתמול)`;
+  return `${dateStr} (לפני ${diffDays} ימים)`;
 }

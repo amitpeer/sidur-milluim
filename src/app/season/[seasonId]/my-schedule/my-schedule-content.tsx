@@ -204,10 +204,14 @@ function ScheduleSection({
 
 function formatSyncedAgo(value: Date | string): string {
   const date = typeof value === "string" ? new Date(value) : value;
-  const diffMs = Date.now() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
   const dateStr = date.toLocaleDateString("he-IL");
+
+  const todayIL = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const syncIL = date.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const diffDays = Math.round(
+    (new Date(todayIL).getTime() - new Date(syncIL).getTime()) / (1000 * 60 * 60 * 24),
+  );
+
   if (diffDays === 0) return `${dateStr} (היום)`;
   if (diffDays === 1) return `${dateStr} (אתמול)`;
   return `${dateStr} (לפני ${diffDays} ימים)`;
