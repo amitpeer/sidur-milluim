@@ -265,6 +265,8 @@ export interface SoldierStats {
   sickDays: number;
   courseDays: number;
   onDutyPercentage: number;
+  kavDays: number;
+  kavPercentage: number;
 }
 
 export interface StatsResult {
@@ -294,6 +296,13 @@ export async function getSoldierStatsAction(
   end.setUTCHours(0, 0, 0, 0);
   const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+  const kavStart = seasonConfig.trainingEndDate
+    ? new Date(new Date(seasonConfig.trainingEndDate).setUTCHours(0, 0, 0, 0) + 86400000)
+    : start;
+  const totalKavDays = kavStart <= end
+    ? Math.round((end.getTime() - kavStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
+
   const constraintCounts = new Map<string, number>();
   const constraintKeySet = new Set<string>();
   for (const c of constraints) {
@@ -305,6 +314,7 @@ export async function getSoldierStatsAction(
   }
 
   const onBaseCounts = new Map<string, number>();
+  const kavOnBaseCounts = new Map<string, number>();
   const sickCounts = new Map<string, number>();
   const courseCounts = new Map<string, number>();
   const soldierNames = new Map<string, string>();
@@ -324,6 +334,9 @@ export async function getSoldierStatsAction(
       courseCounts.set(a.soldierProfileId, (courseCounts.get(a.soldierProfileId) ?? 0) + 1);
     } else if (a.isOnBase && !isConstraintDay) {
       onBaseCounts.set(a.soldierProfileId, (onBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
+      if (d >= kavStart) {
+        kavOnBaseCounts.set(a.soldierProfileId, (kavOnBaseCounts.get(a.soldierProfileId) ?? 0) + 1);
+      }
     }
   }
 
@@ -341,7 +354,11 @@ export async function getSoldierStatsAction(
       const onDutyPercentage = totalDays > 0
         ? Math.round((daysOnBase / totalDays) * 100)
         : 0;
-      return { id, fullName, daysInArmy, totalDaysOff, totalDaysAtHome, daysAtHome, constraintDaysOff, sickDays, courseDays, onDutyPercentage };
+      const kavDays = kavOnBaseCounts.get(id) ?? 0;
+      const kavPercentage = totalKavDays > 0
+        ? Math.round((kavDays / totalKavDays) * 100)
+        : 0;
+      return { id, fullName, daysInArmy, totalDaysOff, totalDaysAtHome, daysAtHome, constraintDaysOff, sickDays, courseDays, onDutyPercentage, kavDays, kavPercentage };
     });
 
   return {
